@@ -1,0 +1,31 @@
+# This repository contains the distributable LocalMultimodalLLM plugin only.
+# Keep the host Unreal project, demo content, model weights, recordings, and
+# local development tools out of source control by default.
+/*
+
+# Repository metadata
+!/.gitignore
+!/.gitattributes
+!/README.md
+
+# Release plugin
+!/Plugins/
+/Plugins/*
+!/Plugins/LocalMultimodalLLM/
+
+# Unreal-generated plugin output
+/Plugins/LocalMultimodalLLM/Intermediate/
+/Plugins/LocalMultimodalLLM/Binaries/Win64/
+
+# Generated/debug artifacts
+*.obj
+*.pdb
+*.pyc
+__pycache__/
+
+# Model weights are acquired separately and are never part of the plugin repo.
+*.gguf
+*.onnx
+*.pt
+*.pth
+*.safetensors

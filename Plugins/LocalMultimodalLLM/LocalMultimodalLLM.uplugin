@@ -1,0 +1,24 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1.0",
+  "FriendlyName": "Local Multimodal LLM",
+  "Description": "Model-agnostic local text and audio inference for Unreal Engine.",
+  "Category": "AI",
+  "CreatedBy": "Ian",
+  "CanContainContent": true,
+  "IsBetaVersion": true,
+  "Plugins": [
+    {
+      "Name": "AudioCapture",
+      "Enabled": true
+    }
+  ],
+  "Modules": [
+    {
+      "Name": "LocalMultimodalLLM",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ]
+}

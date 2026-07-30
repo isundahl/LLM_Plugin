@@ -1,0 +1,23 @@
+{
+  "note": "Readable mirror of DA_ExampleLocalLLMToolSet. Runtime uses the Unreal Data Asset, not this file.",
+  "tools": [
+    {
+      "name": "MoveToTarget",
+      "description": "Request that this character walk to a nearby target currently advertised by the game as reachable and safe. Unreal must resolve the target ID, recheck permission and navigation, choose speed and stopping distance, and report the actual outcome.",
+      "parameters": [{ "name": "target_id", "type": "String", "required": true }],
+      "requiresPlayerConfirmation": false
+    },
+    {
+      "name": "FaceTarget",
+      "description": "Request that this character turn to face a nearby target currently advertised by the game. Unreal must resolve the target ID, recheck permission, and control rotation behavior.",
+      "parameters": [{ "name": "target_id", "type": "String", "required": true }],
+      "requiresPlayerConfirmation": false
+    },
+    {
+      "name": "PlayGesture",
+      "description": "Request one short, non-gameplay gesture from the allow-list. The gesture communicates intent only and must never itself change inventory, quests, relationships, damage, or other authoritative state.",
+      "parameters": [{ "name": "gesture", "type": "String", "required": true, "allowedValues": ["Nod", "ShakeHead", "Wave", "Point", "Shrug"] }],
+      "requiresPlayerConfirmation": false
+    }
+  ]
+}

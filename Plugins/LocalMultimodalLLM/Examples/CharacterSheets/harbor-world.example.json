@@ -1,0 +1,18 @@
+{
+  "WorldName": "Greyhaven",
+  "SettingDescription": "A rain-soaked fantasy port city powered by tide mills; no modern technology exists.",
+  "CurrentLocation": "Harbor watch office",
+  "CurrentSituation": "Three cargo ships are overdue after an unnatural fog rolled in.",
+  "TimeDescription": "Late evening, first day of the autumn storm season",
+  "Revision": 1,
+  "CanonicalFacts": [
+    { "Key": "The Fog", "Value": "Appeared two nights ago and dampens ordinary lantern light." },
+    { "Key": "Missing ships", "Value": "The Lark, Meridian, and Saint Orra are overdue." }
+  ],
+  "DynamicLore": [],
+  "WorldRules": [
+    "Characters cannot know facts they have not witnessed, learned, or been explicitly given.",
+    "Generated dialogue cannot create, destroy, or transfer inventory.",
+    "The game state, not dialogue, is authoritative for locations, quests, and relationships."
+  ]
+}

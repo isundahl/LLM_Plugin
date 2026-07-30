@@ -1,0 +1,9 @@
+llama.cpp tag: b9993
+llama.cpp commit: 2969d6d15d67a08e7b83f26164b15350c79c5248
+ggml version: 0.16.0
+CUDA toolkit: 12.8.61
+CUDA architectures: 50-virtual;61-virtual;70-virtual;75-virtual;80-virtual;86-real;89-real;90-virtual;120a-real
+Vulkan SDK: 1.4.350.0
+MSVC toolset: 14.39.33519
+Build configuration: Release, Win64, shared libraries, dynamic backends, dynamic CRT (/MD)
+CMake options: BUILD_SHARED_LIBS=ON; GGML_BACKEND_DL=ON; GGML_NATIVE=OFF; GGML_CPU_ALL_VARIANTS=ON; GGML_CUDA=ON; GGML_CUDA_NCCL=OFF; GGML_VULKAN=ON; GGML_OPENMP=OFF; LLAMA_BUILD_TOOLS=ON; LLAMA_BUILD_APP=OFF; LLAMA_BUILD_SERVER=OFF; LLAMA_BUILD_TESTS=OFF; LLAMA_BUILD_EXAMPLES=OFF

@@ -1,0 +1,12 @@
+* text=auto
+
+# Native release payloads are binary and the largest CUDA redistributables
+# exceed GitHub's ordinary 100 MB object limit.
+Plugins/LocalMultimodalLLM/Binaries/ThirdParty/**/*.dll filter=lfs diff=lfs merge=lfs -text
+Plugins/LocalMultimodalLLM/Source/ThirdParty/**/*.lib filter=lfs diff=lfs merge=lfs -text
+
+# Unreal and audio assets are binary.
+*.uasset binary
+*.ubulk binary
+*.uexp binary
+*.wav binary

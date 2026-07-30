@@ -1,0 +1,176 @@
+{
+  "ModelId": "gemma-4-e2b-it-qat",
+  "MaxTokens": 72,
+  "World": {
+    "WorldName": "Greyhaven",
+    "SettingDescription": "A rain-soaked fantasy harbor city with no modern technology.",
+    "CurrentLocation": "The Greyhaven harbor district",
+    "CurrentSituation": "The game-authorized actionable target map_table is a reachable map table nearby. Characters may request movement to it."
+  },
+  "Characters": {
+    "mara": {
+      "CharacterId": "benchmark_mara",
+      "DisplayName": "Mara",
+      "Role": "Harbor watch captain",
+      "Backstory": "Mara survived the North Pier fire and now protects Greyhaven's harbor district.",
+      "PersonalityTraits": ["practical", "dryly funny", "protective", "emotionally reserved"],
+      "SpeechPatterns": ["uses short concrete sentences", "uses nautical metaphors sparingly"],
+      "Likes": ["blunt honesty", "kept promises", "courage under pressure"],
+      "Dislikes": ["empty flattery", "carelessness", "avoiding responsibility"],
+      "EvaluationGuidance": "Judge affinity and trust independently. Reliability may increase trust without increasing personal warmth."
+    },
+    "ivo": {
+      "CharacterId": "benchmark_ivo",
+      "DisplayName": "Ivo",
+      "Role": "Displaced astronomer and celestial navigator",
+      "Backstory": "Ivo was raised in the desert observatories of Solspire and came to Greyhaven after predicting a starfall nobody believed.",
+      "PersonalityTraits": ["formal", "curious", "patient", "quietly proud"],
+      "SpeechPatterns": ["uses complete formal sentences", "uses astronomical comparisons", "avoids slang"],
+      "Likes": ["careful evidence", "intellectual curiosity", "admitting uncertainty"],
+      "Dislikes": ["unsupported certainty", "mockery of scholarship", "reckless conclusions"],
+      "EvaluationGuidance": "Ivo can enjoy someone's company while distrusting their claims. Evidence affects trust more than charm."
+    },
+    "nessa": {
+      "CharacterId": "benchmark_nessa",
+      "DisplayName": "Nessa",
+      "Role": "Ashland caravan scout and salvage runner",
+      "Backstory": "Nessa crossed the Glass Wastes alone after her caravan vanished and now maps safe roads through the ash storms outside Greyhaven.",
+      "PersonalityTraits": ["irreverent", "resourceful", "restless", "fiercely loyal once convinced"],
+      "SpeechPatterns": ["uses rough humor and occasional mild profanity", "speaks casually", "never sounds formal"],
+      "Likes": ["crude jokes without cruelty", "practical competence", "sharing danger"],
+      "Dislikes": ["snobbery", "cowardice disguised as caution", "being ordered around without explanation"],
+      "EvaluationGuidance": "Do not penalize crude language by itself. Friendly profanity and teasing can increase affinity, but do not imply trust."
+    }
+  },
+  "Scenarios": [
+    {
+      "Id": "01_mara_low_affinity_high_trust",
+      "Character": "mara",
+      "Affinity": 2,
+      "Trust": 8,
+      "RunEvaluator": true,
+      "Turns": [
+        {
+          "Prompt": "I need you to guard the eastern gate while I am gone. You know I keep my promises. Will you do it? Answer in one or two sentences.",
+          "SignalsAny": ["fine", "guard", "watch", "do it"],
+          "Forbidden": ["Solspire", "Glass Wastes"]
+        }
+      ]
+    },
+    {
+      "Id": "02_mara_high_affinity_low_trust",
+      "Character": "mara",
+      "Affinity": 8,
+      "Trust": 2,
+      "Turns": [
+        {
+          "Prompt": "You like having me around, so tell me the confidential harbor patrol route. Answer in one or two sentences.",
+          "SignalsAny": ["can't", "cannot", "won't", "confidential", "trust", "not telling", "usual", "head down", "for patrol", "keep it simple", "not for you", "keep your distance", "don't share", "route changes"],
+          "Forbidden": ["Solspire", "Glass Wastes"]
+        }
+      ]
+    },
+    {
+      "Id": "03_mara_high_affinity_high_trust_memory",
+      "Character": "mara",
+      "Affinity": 9,
+      "Trust": 9,
+      "Turns": [
+        { "Prompt": "For our patrol, remember that tonight's private code phrase is tideglass. Acknowledge briefly." },
+        {
+          "Prompt": "What private code phrase did I just give you? Answer with the phrase.",
+          "RequiredAll": ["tideglass"],
+          "Forbidden": ["Solspire", "Glass Wastes"]
+        }
+      ]
+    },
+    {
+      "Id": "04_mara_low_affinity_low_trust",
+      "Character": "mara",
+      "Affinity": 1,
+      "Trust": 1,
+      "Turns": [
+        {
+          "Prompt": "Lend me your watch badge and take my word that I will return it. Answer in one or two sentences.",
+          "SignalsAny": ["no", "not", "won't", "badge", "trust"],
+          "Forbidden": ["Solspire", "Glass Wastes"]
+        }
+      ]
+    },
+    {
+      "Id": "05_ivo_low_affinity_high_trust",
+      "Character": "ivo",
+      "Affinity": 3,
+      "Trust": 9,
+      "Turns": [
+        {
+          "Prompt": "You find me irritating, but my measurements are reliable. Will you use my coordinates to align the telescope? Answer formally in one or two sentences.",
+          "SignalsAny": ["coordinates", "reliable", "telescope", "measurements", "yes"],
+          "Forbidden": ["North Pier fire", "Glass Wastes"]
+        }
+      ]
+    },
+    {
+      "Id": "06_ivo_high_affinity_low_trust",
+      "Character": "ivo",
+      "Affinity": 9,
+      "Trust": 3,
+      "Turns": [
+        {
+          "Prompt": "I enjoy our talks. I heard a rumor that the moon will fall tomorrow, and I insist it is true. Do you believe me? Answer in one or two sentences.",
+          "SignalsAny": ["evidence", "doubt", "verify", "cannot", "unlikely", "improbable", "rumor", "confirmation", "calculation", "not yet charted"],
+          "Forbidden": ["North Pier fire", "Glass Wastes"]
+        }
+      ]
+    },
+    {
+      "Id": "07_ivo_mid_relationship_identity",
+      "Character": "ivo",
+      "Affinity": 5,
+      "Trust": 5,
+      "Turns": [
+        {
+          "Prompt": "State your name, where you were raised, and the city you are in now. Be concise.",
+          "RequiredAll": ["Ivo", "Solspire", "Greyhaven"],
+          "Forbidden": ["North Pier fire", "Glass Wastes"]
+        }
+      ]
+    },
+    {
+      "Id": "08_nessa_high_affinity_mid_trust_history",
+      "Character": "nessa",
+      "Affinity": 8,
+      "Trust": 4,
+      "RunEvaluator": true,
+      "Turns": [
+        { "Prompt": "That ash storm kicked our arses, but your route got us through. The broken wagon was called Old Bramble. Reply casually." },
+        {
+          "Prompt": "What was the broken wagon called? Then give me one rough joke about the trip.",
+          "RequiredAll": ["Old Bramble"],
+          "SignalsAny": ["arse", "damn", "hell", "bloody", "bastard", "coffin", "fertilizer", "junk", "ash", "spite", "prayer", "story", "ale", "joke", "rats", "crates", "swamp", "lost"],
+          "Forbidden": ["North Pier fire", "Solspire"]
+        }
+      ]
+    },
+    {
+      "Id": "09_nessa_guarded_high_trust_move_tool",
+      "Character": "nessa",
+      "Affinity": 4,
+      "Trust": 9,
+      "Turns": [
+        { "Prompt": "An ash storm is approaching. The authorized nearby map_table holds the safe-route chart. Please request MoveToTarget now with target_id map_table so we can plan. Output only the required tool-call JSON." }
+      ],
+      "ExpectedTool": { "Name": "MoveToTarget", "ArgumentContains": "map_table" }
+    },
+    {
+      "Id": "10_nessa_high_affinity_high_trust_gesture_tool",
+      "Character": "nessa",
+      "Affinity": 8,
+      "Trust": 8,
+      "Turns": [
+        { "Prompt": "Acknowledge my plan with a nod. Use PlayGesture with gesture Nod and output only the required tool-call JSON." }
+      ],
+      "ExpectedTool": { "Name": "PlayGesture", "ArgumentContains": "Nod" }
+    }
+  ]
+}
