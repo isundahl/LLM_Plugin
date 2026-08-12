@@ -60,6 +60,20 @@ TArray<float> ResampleMono(const float* Samples, const int32 NumSamples, const i
     return Result;
 }
 
+void ApplyEdgeFade(TArray<float>& Samples, const int32 SampleRate, const int32 FadeMilliseconds,
+    const bool bFadeIn, const bool bFadeOut)
+{
+    if (Samples.IsEmpty() || SampleRate <= 0 || FadeMilliseconds <= 0) return;
+    const int32 FadeSamples = FMath::Min(
+        FMath::Max(1, SampleRate * FadeMilliseconds / 1000), Samples.Num() / 2);
+    for (int32 Index = 0; Index < FadeSamples; ++Index)
+    {
+        const float Gain = static_cast<float>(Index) / FMath::Max(1, FadeSamples);
+        if (bFadeIn) Samples[Index] *= Gain;
+        if (bFadeOut) Samples[Samples.Num() - 1 - Index] *= Gain;
+    }
+}
+
 struct FPocketStreamingContext
 {
     const FLocalTextToSpeechCancelCheck* IsCancelled = nullptr;
@@ -69,6 +83,7 @@ struct FPocketStreamingContext
     int32 ChunkSamples = 0;
     int32 SequenceNumber = 0;
     int32 ReceivedSamples = 0;
+    int32 EdgeFadeMilliseconds = 8;
     bool bEmitNativeChunks = true;
 
     bool IsCancellationRequested() const
@@ -79,15 +94,23 @@ struct FPocketStreamingContext
     void EmitAvailable(const bool bFlush)
     {
         if (!OnChunk || !*OnChunk || !bEmitNativeChunks || ChunkSamples <= 0) return;
-        while (PendingSamples.Num() >= ChunkSamples || (bFlush && !PendingSamples.IsEmpty()))
+        // Retain one chunk during generation so the true final chunk can receive a fade-out
+        // before playback. This costs one chunk of latency (20 ms in the demo) and prevents
+        // Pocket boundary transients from becoming audible clicks or short "tsch" artifacts.
+        while ((!bFlush && PendingSamples.Num() >= ChunkSamples * 2) ||
+            (bFlush && !PendingSamples.IsEmpty()))
         {
             const int32 Count = bFlush ? FMath::Min(ChunkSamples, PendingSamples.Num()) : ChunkSamples;
+            const bool bFirstChunk = SequenceNumber == 0;
+            const bool bLastChunk = bFlush && PendingSamples.Num() == Count;
             FLocalLLMAudioChunk Chunk;
             Chunk.SampleRate = SampleRate;
             Chunk.NumChannels = 1;
             Chunk.SequenceNumber = SequenceNumber++;
             Chunk.Samples.Append(PendingSamples.GetData(), Count);
             PendingSamples.RemoveAt(0, Count, EAllowShrinking::No);
+            ApplyEdgeFade(Chunk.Samples, SampleRate, EdgeFadeMilliseconds,
+                bFirstChunk, bLastChunk);
             (*OnChunk)(Chunk);
         }
     }
@@ -303,6 +326,7 @@ public:
         Streaming.SampleRate = NativeSampleRate;
         Streaming.ChunkSamples = FMath::Max(1,
             NativeSampleRate * FMath::Max(20, Config.ChunkMilliseconds) / 1000);
+        Streaming.EdgeFadeMilliseconds = 8;
         Streaming.bEmitNativeChunks = OutputRate == NativeSampleRate;
 
         const SherpaOnnxGeneratedAudio* Audio = SherpaOnnxOfflineTtsGenerateWithConfig(
@@ -330,8 +354,11 @@ public:
         else
         {
             OutResult.Audio.Samples = ResampleMono(Audio->samples, Audio->n, Audio->sample_rate, OutputRate);
+            ApplyEdgeFade(OutResult.Audio.Samples, OutputRate, 8, true, true);
             EmitCompleteChunks(OutResult.Audio.Samples, OutputRate, Config.ChunkMilliseconds, OnChunk);
         }
+        if (OutputRate == Audio->sample_rate)
+            ApplyEdgeFade(OutResult.Audio.Samples, OutputRate, 8, true, true);
         OutResult.Audio.SampleRate = OutputRate;
         OutResult.Audio.NumChannels = 1;
         OutResult.VoiceId = Request.VoiceId.IsEmpty() ? Config.VoiceId : Request.VoiceId;

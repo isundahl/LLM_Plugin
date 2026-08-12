@@ -251,6 +251,8 @@ Use these provider-neutral fields:
 | `Seed` | Generation seed |
 | `MaxReferenceSeconds` | Maximum reference audio used during voice preparation |
 | `MaxGeneratedSeconds` | Utterance safety ceiling |
+| `OutputFadeInMilliseconds` | Provider-neutral onset ramp; `40` ms suppresses clicks without masking the first word |
+| `InterSegmentPauseMilliseconds` | Silence between consecutively queued speech segments; default `160` ms |
 | `MaxQueuedSegmentCharacters` | Optional clause-aware queue split; the demo uses `100` |
 | `PreferredQueuedSplitFraction` | Preferred balance for a split; the demo uses `0.58` |
 

@@ -6,11 +6,12 @@ push-to-talk STT, streamed subtitles, and TTS playback. Custom models, multiple
 characters, tools, vision, relationship evaluation, and advanced routing build
 on that working speech chain.
 
-The complete release is intended to supply preconfigured starter models. The
-current beta source checkout does not yet constitute that release: its
-distribution validator excludes model weights, so developers using the checkout
-must provide project-level model assets as described in **Use a custom model**
-below.
+The complete release is intended to supply preconfigured starter models. Large
+weights are not stored in Git history, so a source checkout by itself is not the
+Full Starter Bundle. The separately assembled bundle includes the tested Gemma
+4 E2B, Parakeet, and Pocket assets at their preconfigured project paths.
+Developers only need **Use a custom model** when building directly from source
+or replacing those defaults. See [Starter Models](StarterModels.md).
 
 ## 1. Current v1 scope
 
@@ -33,7 +34,9 @@ Important boundaries:
 
 - Only one primary LLM is loaded at a time. Its worker serializes inference requests, while each character keeps independent state.
 - Consecutive turns reuse the common evaluated prompt prefix. Switching characters lazily saves the outgoing llama sequence state to system RAM and restores the incoming character's state.
-- Native Pocket TTS is available through the packaged sherpa-onnx runtime. The model and a consented reference WAV remain project-owned external assets.
+- Native Pocket TTS is available through the packaged sherpa-onnx runtime. The
+  Full Starter Bundle supplies the approved Pocket model and two CC0 starter
+  reference voices; a source-only checkout requires the model separately.
 - NeuTTS-2E and Chatterbox use persistent Python sidecars for
   Editor/Development evaluation. They are intentionally unavailable in
   Shipping builds; NeuTTS-2E is CPU-based with four fixed speakers, while
@@ -91,6 +94,24 @@ Choose **Local LLM Character Sheet**. Create one asset per character and set at 
 - `OutOfWorldDeflection` in that character's voice.
 
 Keep example dialogue short and distinctive. Treat `KnownFacts` as facts the character knows, not necessarily global truth.
+
+`ConversationMemory.MaxGeneratedContextTokens` is a soft allocation target,
+not a destructive character-sheet limit. If generated character, world,
+custom, and tool instructions exceed it, the plugin emits one `Warning` per
+session and continues while the complete prompt still fits the model context.
+Required authored facts are never silently truncated or summarized by the
+model. Automatic compaction applies to expired dialogue and compacted
+conversational memory.
+
+If a complete prompt reaches the model's actual capacity, the runtime degrades
+gracefully. It tries expired-dialogue compaction first, omits the oldest recent
+turns from that inference without deleting stored history, then removes
+compacted memory, optional example dialogue/presentation details, and finally
+tool schemas. A minimal identity-and-current-scene prompt is the last
+model-backed fallback. If even that cannot fit beside the current player input
+and output reserve, the component emits `Warning` and returns the configured
+in-character overlong-input response without inference. Context pressure must
+not leave gameplay waiting on a response.
 
 `PreferredSpokenSentences` is a soft prompt target (two by default), so the
 model is asked to put essential information first without discarding a planned
@@ -228,6 +249,26 @@ The showcase coordinator can execute the safe starter tool set without a large B
 
 Use `Play Character Gesture` or `Face Character Toward Actor` when gameplay should choose an action deterministically. Model tool calls are optional flavor, not authority.
 
+### Showcase model and voice presets
+
+The host project's coordinator exposes a **Demo Stack Preset** so recorded
+comparisons do not depend on stale values serialized in the map:
+
+- **Distributable Gemma Pocket** is the default. It selects
+  `gemma-4-e2b-it-qat`, native `pocket-tts`, the CC0 Caro Davy reference for
+  Ada, and the CC0 Bill Boerst reference for Taro. This is the Full Starter
+  Bundle configuration and the appropriate opening showcase.
+- **Qwen NeuTTS Development** selects `qwen-3.5-4b-iq3`, the development
+  `neutts-2e` sidecar, Emily for Ada, and Paul for Taro. Use it only as a
+  clearly labeled optional backend comparison: NeuTTS is not registered in
+  Shipping and has separate commercial-license thresholds.
+- **Custom** preserves the model ID and per-character voice settings authored
+  on the coordinator.
+
+Restart PIE after changing the preset. The coordinator applies it before
+loading the shared model, character sessions, and voice providers, and logs
+the effective selection at startup.
+
 ### Showcase push-to-talk control
 
 The placed `MetaHumanLLMDemoCoordinator` binds push-to-talk directly, independently of the First Person Enhanced Input mapping. Hold `V` to freeze the best recipient from the camera direction and begin recording; release `V` to submit immediately. `Enable Push To Talk Key` and `Push To Talk Key` are editable on the coordinator. A press made while the model or character sessions are still preparing is rejected instead of opening late, and a tap or silent recording is filtered before transcription.
@@ -361,6 +402,14 @@ material and must not be shipped.
 
 Leave `bAutoPlayAudio` enabled, assign a 3D attenuation asset when appropriate, and call `Synthesize Speech` after a completed character response. Bind `OnTextToSpeechEvent` for subtitles or lip sync. For MetaSound processing, assign a mono Audio Bus to `MetaSoundAudioBus` and read it with `Audio Bus Reader (Mono)` in the graph. Do not build final facial animation or voice quality acceptance around the mock tone. See [TextToSpeech.md](TextToSpeech.md).
 
+Queued speech is split at natural clause boundaries by default when a segment
+exceeds 96 characters. This keeps long generated sentences below provider
+duration ceilings without changing subtitles or conversation memory. Set
+`MaxQueuedSegmentCharacters` to zero only when the selected provider is known
+to handle unbounded sentences safely. A synthesis error cancels the remaining
+response queue and flushes pending face PCM, preventing silent lip motion after
+audible playback has stopped.
+
 `SynthesisTimeoutSeconds` is the wall-clock ceiling for one queued segment, including time spent waiting for a shared provider. It prevents a stalled sidecar or voice request from leaving a character permanently speaking. The default is 30 seconds; the Pocket demo uses 15 seconds.
 
 NeuTTS-2E and Chatterbox share one warmed model process across all character
@@ -372,7 +421,7 @@ performance measurements, and Shipping limitations.
 
 `bNormalizeOutputLoudness` applies provider-neutral, streaming-safe conversational
 leveling before PCM reaches playback or facial animation. The default target is
-`-27 dBFS RMS`, automatic boost is capped at `8 dB`, loud output can be reduced by
+`-24 dBFS RMS`, automatic boost is capped at `8 dB`, loud output can be reduced by
 up to `12 dB`, and peaks are held below `-3 dBFS`. Near-silence is not boosted.
 Gain increases use a slower attack than attenuation, and changes are ramped
 within each PCM frame. This prevents a quiet codec startup/fade from receiving

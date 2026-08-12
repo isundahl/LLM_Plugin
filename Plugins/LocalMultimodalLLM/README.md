@@ -37,11 +37,12 @@ pinned native runtimes, and preconfigured default LLM, STT, and TTS assets.
 Installing a different model is not part of the normal Quick Start.
 
 > **Current beta packaging status:** the source checkout contains the native
-> runtimes, manifests, and development model assets, but the distribution
-> validator still excludes model weights. A release archive is not a complete
-> Starter Bundle until its redistributable starter weights and notices have
-> been assembled and validated. See **Using other models** below when working
-> directly from this source checkout.
+> runtimes and manifests. Large model weights live outside Git history, but
+> they are intended to be included in the separately assembled Full Starter
+> Bundle. A release is not a complete Starter Bundle until its redistributable
+> Gemma 4 E2B, Parakeet, and Pocket assets and notices have been assembled and
+> validated. See [Starter Models](Docs/StarterModels.md). Use **Using other
+> models** only when working directly from source or replacing the defaults.
 
 1. Install the complete Starter Bundle into the Unreal project root. This adds
    `Plugins/LocalMultimodalLLM` and its preconfigured starter-model payload.
@@ -116,9 +117,10 @@ respondent. Always-on/VAD capture remains optional.
 - Mock STT/TTS providers and the Python NeuTTS-2E and Chatterbox adapters are
   not registered in Shipping builds.
 - Automation tests compile only when Unreal enables development automation tests.
-- Raw voice datasets, benchmark configurations, Python environments, model
-  weights, MetaHumans, and demo-map assets are project test material, not plug-in
-  payload.
+- Raw voice datasets, benchmark configurations, Python environments,
+  MetaHumans, and demo-map assets are project test material, not plug-in
+  payload. Approved starter weights are release-bundle assets stored beside the
+  plug-in rather than inside its folder or Git history.
 - `Intermediate`, PDB/OBJ files, caches, and Saved output must not be distributed.
 - Pocket TTS and sherpa-onnx provide the native CPU Shipping-capable code path.
   Pocket source is MIT, its upstream weights and the tested ONNX bundle carry
@@ -139,6 +141,7 @@ Run `Scripts/ValidateDistribution.ps1` against a staged copy before shipping.
 ## Documentation
 
 - [User Guide](Docs/UserGuide.md) - complete setup and Blueprint workflow
+- [Starter Models](Docs/StarterModels.md) - default weights, release layout, and licenses
 - [Packaging](Docs/Packaging.md) - runtime profiles, exclusions, and release checks
 - Model configurations - place `*.localllm.json` manifests in the project's
   `Models` directory; see the User Guide

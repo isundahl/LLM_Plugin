@@ -67,6 +67,14 @@ bool FLocalLLMPocketTtsNativeSmokeTest::RunTest(const FString&)
     TestEqual(TEXT("Pocket TTS output is mono"), Result.Audio.NumChannels, 1);
     TestTrue(TEXT("Pocket TTS emits at least one streaming chunk"), !Chunks.IsEmpty());
     TestTrue(TEXT("Pocket TTS reports first-audio latency"), FirstChunkSeconds >= 0.0);
+    if (!Chunks.IsEmpty())
+    {
+        TestTrue(TEXT("Pocket stream begins with a de-clicked sample"),
+            Chunks[0].Samples.IsEmpty() || FMath::Abs(Chunks[0].Samples[0]) < 1.0e-6f);
+        const FLocalLLMAudioChunk& LastChunk = Chunks.Last();
+        TestTrue(TEXT("Pocket stream ends with a de-clicked sample"),
+            LastChunk.Samples.IsEmpty() || FMath::Abs(LastChunk.Samples.Last()) < 1.0e-6f);
+    }
     int32 StreamedSamples = 0;
     for (int32 Index = 0; Index < Chunks.Num(); ++Index)
     {

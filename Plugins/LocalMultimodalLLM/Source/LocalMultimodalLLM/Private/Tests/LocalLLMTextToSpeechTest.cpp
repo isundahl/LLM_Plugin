@@ -17,14 +17,20 @@ bool FLocalLLMTextToSpeechMockProviderTest::RunTest(const FString&)
         DefaultConfig.SynthesisTimeoutSeconds, 30.0f);
     TestTrue(TEXT("Conversational loudness leveling is enabled by default"),
         DefaultConfig.bNormalizeOutputLoudness);
-    TestEqual(TEXT("Default conversational loudness target is conservative"),
-        DefaultConfig.TargetOutputRmsDbfs, -27.0f);
+    TestEqual(TEXT("Default conversational loudness target remains bounded"),
+        DefaultConfig.TargetOutputRmsDbfs, -24.0f);
     TestEqual(TEXT("Default loudness boost is bounded"),
         DefaultConfig.MaxOutputGainDb, 8.0f);
     TestEqual(TEXT("Default TTS sampling temperature favors stable speech"),
         DefaultConfig.SamplingTemperature, 0.70f);
     TestEqual(TEXT("Default TTS top-k limits token drift"),
         DefaultConfig.SamplingTopK, 30);
+    TestEqual(TEXT("Default onset fade suppresses stream-boundary transients"),
+        DefaultConfig.OutputFadeInMilliseconds, 40);
+    TestEqual(TEXT("Default queued sentence pacing remains conversational"),
+        DefaultConfig.InterSegmentPauseMilliseconds, 160);
+    TestEqual(TEXT("Default queued speech is bounded before provider synthesis"),
+        DefaultConfig.MaxQueuedSegmentCharacters, 96);
 
     const FString LongSentence =
         TEXT("That's the reward notice for two notorious outlaws: Laura Bullion and Harry Longbaugh, ")
@@ -69,6 +75,20 @@ bool FLocalLLMTextToSpeechMockProviderTest::RunTest(const FString&)
         DriftProneSegments.Num(), 2);
     TestEqual(TEXT("Tail-drift sentence text is preserved"),
         FString::Join(DriftProneSegments, TEXT(" ")), DriftProneSentence);
+
+    const FString CutoffRegressionSentence =
+        TEXT("One is for Laura Bullion, who is wanted for train and bank robbery, and the U.S. Marshal's office offers a reward of five hundred dollars for her capture.");
+    const TArray<FString> CutoffRegressionSegments =
+        LocalLLMSpeechTextUtils::SplitQueuedSpeech(CutoffRegressionSentence, 96, 0.58f);
+    TestTrue(TEXT("The sentence that previously hit the eight-second Pocket ceiling is split"),
+        CutoffRegressionSegments.Num() > 1);
+    TestEqual(TEXT("Cutoff-regression splitting preserves the complete sentence"),
+        FString::Join(CutoffRegressionSegments, TEXT(" ")), CutoffRegressionSentence);
+    for (const FString& Segment : CutoffRegressionSegments)
+    {
+        TestTrue(TEXT("Every cutoff-regression segment stays inside the configured character bound"),
+            Segment.Len() <= 96);
+    }
 
     double BatchSeconds = 0.0;
     TestTrue(TEXT("A completed batch inside its limit is accepted"),

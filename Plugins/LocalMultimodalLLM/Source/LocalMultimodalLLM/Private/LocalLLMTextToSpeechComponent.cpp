@@ -76,20 +76,39 @@ struct FSpeechDurationGuard
 
 struct FStreamingLoudnessNormalizer
 {
-    explicit FStreamingLoudnessNormalizer(const FLocalLLMTextToSpeechConfig& Config)
+    explicit FStreamingLoudnessNormalizer(
+        const FLocalLLMTextToSpeechConfig& Config, const bool bSuppressOnsetFade)
         : bEnabled(Config.bNormalizeOutputLoudness)
         , TargetRmsDbfs(FMath::Clamp(Config.TargetOutputRmsDbfs, -40.0f, -12.0f))
         , MaxGainDb(FMath::Clamp(Config.MaxOutputGainDb, 0.0f, 18.0f))
         , MaxAttenuationDb(FMath::Clamp(Config.MaxOutputAttenuationDb, 0.0f, 24.0f))
         , PeakCeiling(FMath::Pow(10.0f, FMath::Clamp(Config.OutputPeakCeilingDbfs, -12.0f, -0.1f) / 20.0f))
         , AdaptationSeconds(FMath::Clamp(Config.LoudnessAdaptationSeconds, 0.05f, 3.0f))
+        , FadeInSeconds(bSuppressOnsetFade
+            ? 0.0f
+            : FMath::Clamp(Config.OutputFadeInMilliseconds, 0, 500) / 1000.0f)
     {
     }
 
     void Process(FLocalLLMAudioChunk& Chunk)
     {
-        if (!bEnabled || !Chunk.IsValid())
+        if (!Chunk.IsValid())
+            return;
+
+        const float ChunkSeconds = static_cast<float>(Chunk.Samples.Num()) /
+            FMath::Max(1.0f, static_cast<float>(Chunk.SampleRate * FMath::Max(1, Chunk.NumChannels)));
+        if (!bEnabled)
         {
+            for (int32 Index = 0; Index < Chunk.Samples.Num(); ++Index)
+            {
+                const double SampleTime = ProcessedSeconds + static_cast<double>(Index) /
+                    FMath::Max(1, Chunk.SampleRate * FMath::Max(1, Chunk.NumChannels));
+                const float OnsetGain = FadeInSeconds > 0.0f
+                    ? FMath::Clamp(static_cast<float>(SampleTime / FadeInSeconds), 0.0f, 1.0f)
+                    : 1.0f;
+                Chunk.Samples[Index] *= OnsetGain;
+            }
+            ProcessedSeconds += ChunkSeconds;
             NormalizedSamples.Append(Chunk.Samples);
             return;
         }
@@ -115,8 +134,6 @@ struct FStreamingLoudnessNormalizer
         if (RmsDbfs >= SpeechFloorDbfs)
             DesiredGainDb = FMath::Clamp(TargetRmsDbfs - RmsDbfs, -MaxAttenuationDb, MaxGainDb);
 
-        const float ChunkSeconds = static_cast<float>(Chunk.Samples.Num()) /
-            FMath::Max(1.0f, static_cast<float>(Chunk.SampleRate * FMath::Max(1, Chunk.NumChannels)));
         // Begin at unity. Increasing gain is deliberately gradual, while attenuation
         // reacts quickly enough to catch the first real syllable after a quiet onset.
         const float TimeConstant = DesiredGainDb < SmoothedGainDb
@@ -144,8 +161,13 @@ struct FStreamingLoudnessNormalizer
         {
             const float T = static_cast<float>(Index + 1) / FMath::Max(1, SampleCount);
             const float SampleGain = FMath::Lerp(PreviousLinearGain, LinearGain, T);
+            const double SampleTime = ProcessedSeconds + static_cast<double>(Index) /
+                FMath::Max(1, Chunk.SampleRate * FMath::Max(1, Chunk.NumChannels));
+            const float OnsetGain = FadeInSeconds > 0.0f
+                ? FMath::Clamp(static_cast<float>(SampleTime / FadeInSeconds), 0.0f, 1.0f)
+                : 1.0f;
             Chunk.Samples[Index] =
-                FMath::Clamp(Chunk.Samples[Index] * SampleGain, -PeakCeiling, PeakCeiling);
+                FMath::Clamp(Chunk.Samples[Index] * SampleGain * OnsetGain, -PeakCeiling, PeakCeiling);
             OutputPeak = FMath::Max(OutputPeak, FMath::Abs(Chunk.Samples[Index]));
         }
         PreviousLinearGain = LinearGain;
@@ -169,11 +191,12 @@ struct FStreamingLoudnessNormalizer
     }
 
     bool bEnabled = true;
-    float TargetRmsDbfs = -27.0f;
+    float TargetRmsDbfs = -24.0f;
     float MaxGainDb = 8.0f;
     float MaxAttenuationDb = 12.0f;
     float PeakCeiling = 0.7079f;
     float AdaptationSeconds = 0.75f;
+    float FadeInSeconds = 0.04f;
     float SmoothedGainDb = 0.0f;
     float PreviousLinearGain = 1.0f;
     float MinimumAppliedGainDb = 0.0f;
@@ -361,6 +384,9 @@ FGuid ULocalLLMTextToSpeechComponent::SynthesizeSpeech(
     ActiveRequestId = RequestId;
     Impl->bBusy.Store(true);
     Impl->bCancelRequested.Store(false);
+    if (bInsertPauseBeforeNextSpeech && Config.InterSegmentPauseMilliseconds > 0)
+        RequestsNeedingLeadingPause.Add(RequestId);
+    bInsertPauseBeforeNextSpeech = false;
     const FString EffectiveVoice = Request.VoiceId.IsEmpty() ? Config.VoiceId : Request.VoiceId;
     BroadcastEvent(ELocalLLMEventType::TextToSpeechStarted, RequestId, SessionId, CharacterId,
         Request.Text, nullptr, EffectiveVoice);
@@ -369,15 +395,27 @@ FGuid ULocalLLMTextToSpeechComponent::SynthesizeSpeech(
     const TSharedPtr<FImpl, ESPMode::ThreadSafe> SharedImpl = Impl;
     const TWeakObjectPtr<ULocalLLMTextToSpeechComponent> WeakThis(this);
     const FLocalLLMTextToSpeechConfig ConfigCopy = Config;
+    const bool bSuppressOnsetFade = bSuppressOnsetFadeForNextSynthesis;
+    bSuppressOnsetFadeForNextSynthesis = false;
     const double ExpectedSeconds = FMath::Max(1.0,
         Request.Text.Len() / (12.0 * FMath::Max(0.25f, Request.SpeakingRate)));
     const TSharedRef<FSpeechDurationGuard, ESPMode::ThreadSafe> DurationGuard =
         MakeShared<FSpeechDurationGuard, ESPMode::ThreadSafe>();
     const TSharedRef<FStreamingLoudnessNormalizer, ESPMode::ThreadSafe> LoudnessNormalizer =
-        MakeShared<FStreamingLoudnessNormalizer, ESPMode::ThreadSafe>(ConfigCopy);
+        MakeShared<FStreamingLoudnessNormalizer, ESPMode::ThreadSafe>(
+            ConfigCopy, bSuppressOnsetFade);
+    const double AbsoluteMaximumSeconds =
+        static_cast<double>(FMath::Clamp(ConfigCopy.MaxGeneratedSeconds, 1.0f, 60.0f));
+    // Character count is only a rough speech-duration estimate. Autoregressive voices
+    // can legitimately spend five seconds on a short clause, especially around pauses
+    // and punctuation. The old 2.75-second floor falsely cancelled healthy NeuTTS
+    // segments. Retain a text-sensitive guard, but grant up to half of the provider's
+    // configured hard ceiling (capped at seven seconds) before relying on the estimate.
+    const double ProviderHeadroomFloor = FMath::Min(
+        AbsoluteMaximumSeconds, FMath::Clamp(AbsoluteMaximumSeconds * 0.5, 3.5, 7.0));
     DurationGuard->MaximumSeconds = FMath::Min(
-        static_cast<double>(FMath::Clamp(ConfigCopy.MaxGeneratedSeconds, 1.0f, 60.0f)),
-        FMath::Max(2.75, ExpectedSeconds * 1.75 + 1.0));
+        AbsoluteMaximumSeconds,
+        FMath::Max(ProviderHeadroomFloor, ExpectedSeconds * 2.0 + 1.5));
     Async(EAsyncExecution::ThreadPool,
         [SharedImpl, WeakThis, ConfigCopy, Request = MoveTemp(Request), RequestId, SessionId, CharacterId,
             EffectiveVoice, DurationGuard, LoudnessNormalizer]() mutable
@@ -486,6 +524,8 @@ FGuid ULocalLLMTextToSpeechComponent::SynthesizeSpeech(
                         CharacterId, TEXT("Speech synthesis completed"), &Complete,
                         Result.VoiceId.IsEmpty() ? EffectiveVoice : Result.VoiceId);
                 }
+                if (!Self->QueuedSpeech.IsEmpty() && bSuccess && !bCancelled)
+                    Self->bInsertPauseBeforeNextSpeech = true;
                 Self->DrainPendingPrewarmOrSpeech();
             }
         });
@@ -503,6 +543,9 @@ bool ULocalLLMTextToSpeechComponent::QueueSpeech(
             !Config.IsEnabled() ? TEXT("Text-to-speech is disabled or has no provider") : TEXT("Text-to-speech input is empty"));
         return false;
     }
+    const bool bSpeechAlreadyQueuedOrPlaying = Impl->bBusy.Load() || !QueuedSpeech.IsEmpty() ||
+        EstimatedPlaybackEndAt > FPlatformTime::Seconds();
+    if (bSpeechAlreadyQueuedOrPlaying) bInsertPauseBeforeNextSpeech = true;
     const TArray<FString> Segments = LocalLLMSpeechTextUtils::SplitQueuedSpeech(
         Request.Text, Config.MaxQueuedSegmentCharacters, Config.PreferredQueuedSplitFraction);
     if (Segments.Num() > 1)
@@ -512,13 +555,17 @@ bool ULocalLLMTextToSpeechComponent::QueueSpeech(
             Segments.Num(), Request.Text.Len(), Config.MaxQueuedSegmentCharacters,
             Config.PreferredQueuedSplitFraction);
     }
-    for (const FString& Segment : Segments)
+    for (int32 SegmentIndex = 0; SegmentIndex < Segments.Num(); ++SegmentIndex)
     {
         FQueuedSpeechRequest& Queued = QueuedSpeech.AddDefaulted_GetRef();
         Queued.Request = Request;
-        Queued.Request.Text = Segment;
+        Queued.Request.Text = Segments[SegmentIndex];
         Queued.SessionId = SessionId;
         Queued.CharacterId = CharacterId;
+        // An anti-click onset belongs at the beginning of a spoken run. Reapplying it
+        // to natural clause splits or sentence-stream continuations can swallow the
+        // first phoneme, particularly for softer voices such as NeuTTS Emily.
+        Queued.bSuppressOnsetFade = bSpeechAlreadyQueuedOrPlaying || SegmentIndex > 0;
     }
     StartNextQueuedSpeech();
     return !Segments.IsEmpty();
@@ -527,6 +574,7 @@ bool ULocalLLMTextToSpeechComponent::QueueSpeech(
 void ULocalLLMTextToSpeechComponent::ClearQueuedSpeech()
 {
     QueuedSpeech.Reset();
+    bInsertPauseBeforeNextSpeech = false;
 }
 
 void ULocalLLMTextToSpeechComponent::StartNextQueuedSpeech()
@@ -534,6 +582,7 @@ void ULocalLLMTextToSpeechComponent::StartNextQueuedSpeech()
     if (!Impl || Impl->bBusy.Load() || QueuedSpeech.IsEmpty()) return;
     FQueuedSpeechRequest Next = MoveTemp(QueuedSpeech[0]);
     QueuedSpeech.RemoveAt(0, EAllowShrinking::No);
+    bSuppressOnsetFadeForNextSynthesis = Next.bSuppressOnsetFade;
     if (!SynthesizeSpeech(MoveTemp(Next.Request), Next.SessionId, Next.CharacterId).IsValid())
         StartNextQueuedSpeech();
 }
@@ -553,6 +602,8 @@ void ULocalLLMTextToSpeechComponent::DrainPendingPrewarmOrSpeech()
 void ULocalLLMTextToSpeechComponent::CancelSpeechSynthesis()
 {
     QueuedSpeech.Reset();
+    RequestsNeedingLeadingPause.Reset();
+    bInsertPauseBeforeNextSpeech = false;
     TimedOutRequests.Reset();
     ClearSynthesisWatchdog(ActiveRequestId);
     if (Impl && Impl->bBusy.Load()) Impl->bCancelRequested.Store(true);
@@ -659,8 +710,33 @@ void ULocalLLMTextToSpeechComponent::BroadcastEvent(const ELocalLLMEventType Typ
     Event.Text = Text;
     Event.TextToSpeechProvider = Config.Provider;
     Event.VoiceId = VoiceId;
-    if (Audio) Event.Audio = *Audio;
-    HandleAutomaticPlayback(Type, RequestId, Audio);
+    const FLocalLLMAudioChunk* EffectiveAudio = Audio;
+    if (Audio)
+    {
+        Event.Audio = *Audio;
+        const bool bFirstPcmForRequest =
+            (Type == ELocalLLMEventType::TextToSpeechChunk || Type == ELocalLLMEventType::TextToSpeechCompleted) &&
+            Event.Audio.IsValid() && RequestsNeedingLeadingPause.Remove(RequestId) > 0;
+        if (bFirstPcmForRequest)
+        {
+            const int32 PauseSamples = FMath::Max(0, Event.Audio.SampleRate) *
+                FMath::Max(1, Event.Audio.NumChannels) *
+                FMath::Clamp(Config.InterSegmentPauseMilliseconds, 0, 1000) / 1000;
+            if (PauseSamples > 0)
+            {
+                TArray<float> SpacedSamples;
+                SpacedSamples.Init(0.0f, PauseSamples);
+                SpacedSamples.Append(Event.Audio.Samples);
+                Event.Audio.Samples = MoveTemp(SpacedSamples);
+                UE_LOG(LogLocalMultimodalLLM, Display,
+                    TEXT("Inserted %d ms pause before queued TTS request %s"),
+                    Config.InterSegmentPauseMilliseconds,
+                    *RequestId.ToString(EGuidFormats::DigitsWithHyphensLower));
+            }
+        }
+        EffectiveAudio = &Event.Audio;
+    }
+    HandleAutomaticPlayback(Type, RequestId, EffectiveAudio);
     OnTextToSpeechEvent.Broadcast(Event);
 }
 
@@ -699,6 +775,29 @@ bool ULocalLLMTextToSpeechComponent::QueuePlaybackAudio(const FLocalLLMAudioChun
             TEXT("Could not create procedural TTS playback objects (rate=%d channels=%d)"),
             Audio.SampleRate, Audio.NumChannels);
         return false;
+    }
+
+    // USoundWaveProcedural can retain a negative byte count after a completed stream
+    // underruns. ResetAudio() does not clear that internal debt. Recreate the empty wave
+    // once at the next request boundary; never restart it for ordinary continuation chunks.
+    if (Audio.SequenceNumber == 0 && SpeechSoundWave->GetAvailableAudioByteCount() < 0)
+    {
+        const int32 StaleByteDebt = SpeechSoundWave->GetAvailableAudioByteCount();
+        SpeechAudioComponent->Stop();
+        SpeechSoundWave = NewObject<USoundWaveProcedural>(this, NAME_None, RF_Transient);
+        if (!SpeechSoundWave) return false;
+        SpeechSoundWave->SetSampleRate(Audio.SampleRate);
+        SpeechSoundWave->NumChannels = Audio.NumChannels;
+        SpeechSoundWave->Duration = INDEFINITELY_LOOPING_DURATION;
+        SpeechSoundWave->SoundGroup = SOUNDGROUP_Voice;
+        SpeechSoundWave->bLooping = false;
+        SpeechSoundWave->bCanProcessAsync = true;
+        SpeechAudioComponent->SetSound(SpeechSoundWave);
+        EstimatedPlaybackEndAt = 0.0;
+        ApplyPlaybackSettings();
+        UE_LOG(LogLocalMultimodalLLM, Display,
+            TEXT("Recreated drained procedural TTS wave at request boundary (discarded stale byte debt=%d)"),
+            StaleByteDebt);
     }
 
     TArray<int16> Pcm16;

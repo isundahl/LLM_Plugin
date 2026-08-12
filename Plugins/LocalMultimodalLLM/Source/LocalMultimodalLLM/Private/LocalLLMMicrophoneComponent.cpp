@@ -49,13 +49,17 @@ struct ULocalLLMMicrophoneComponent::FImpl
 };
 
 ULocalLLMMicrophoneComponent::ULocalLLMMicrophoneComponent()
-    : Impl(MakeUnique<FImpl>())
+    : Impl(new FImpl())
 {
     PrimaryComponentTick.bCanEverTick = true;
     PrimaryComponentTick.bStartWithTickEnabled = false;
 }
 
-ULocalLLMMicrophoneComponent::~ULocalLLMMicrophoneComponent() = default;
+ULocalLLMMicrophoneComponent::~ULocalLLMMicrophoneComponent()
+{
+    delete Impl;
+    Impl = nullptr;
+}
 
 void ULocalLLMMicrophoneComponent::BeginPlay()
 {
@@ -153,8 +157,10 @@ bool ULocalLLMMicrophoneComponent::StartPushToTalkRecording(
 void ULocalLLMMicrophoneComponent::StopListening(const bool bSubmitPendingSpeech)
 {
     if (!Impl || !Impl->bListening) return;
-    Impl->Shared->bAccepting.Store(false);
+    // Keep accepting buffers until WASAPI has actually stopped. Disabling the callback first can
+    // discard the last in-flight capture block, which is especially visible with push-to-talk.
     Impl->Capture.StopStream();
+    Impl->Shared->bAccepting.Store(false);
     Impl->Capture.CloseStream();
     ProcessCapturedAudio();
     Impl->bCalibrating = false;
@@ -513,12 +519,15 @@ void ULocalLLMMicrophoneComponent::SubmitAudioAfterSpeakerCheck(
 {
     if (ULocalLLMSubsystem* LocalSubsystem = Subsystem.Get())
     {
-        const FGuid RequestId = LocalSubsystem->SubmitAudioForSession(SessionId, Audio, Prompt);
+        const FGuid RequestId = Config.bAutoSubmitTranscriptToConversation
+            ? LocalSubsystem->SubmitAudioForSession(SessionId, Audio, Prompt)
+            : LocalSubsystem->TranscribeAudioForSession(SessionId, Audio);
         FLocalLLMEvent Event;
         Event.Type = ELocalLLMEventType::UtteranceSubmitted;
         Event.RequestId = RequestId;
         Event.SessionId = SessionId;
-        Event.Text = TEXT("Utterance submitted");
+        Event.Text = Config.bAutoSubmitTranscriptToConversation
+            ? TEXT("Utterance submitted") : TEXT("Utterance submitted for transcription only");
         PendingUtteranceRequests.Add(RequestId);
         UE_LOG(LogLocalLLMMicrophone, Display,
             TEXT("Submitted utterance request %s for session %s"),
@@ -532,8 +541,17 @@ void ULocalLLMMicrophoneComponent::HandleSubsystemEvent(const FLocalLLMEvent& Ev
 {
     if (PendingUtteranceRequests.Contains(Event.RequestId))
     {
-        if (Event.Type == ELocalLLMEventType::TranscriptionCompleted)
+        // TranscribeAudioForSession is also used for periodic snapshots and therefore
+        // emits TranscriptionPartial. A request tracked here is not a snapshot: it is a
+        // finalized microphone utterance deliberately sent through transcription-only
+        // mode so the game can apply contextual normalization before LLM submission.
+        // Promote that event locally to the final boundary expected by microphone clients.
+        if (Event.Type == ELocalLLMEventType::TranscriptionCompleted ||
+            (!Config.bAutoSubmitTranscriptToConversation &&
+             Event.Type == ELocalLLMEventType::TranscriptionPartial))
         {
+            FLocalLLMEvent FinalEvent = Event;
+            FinalEvent.Type = ELocalLLMEventType::TranscriptionCompleted;
             const FString& RawTranscript = Event.TranscriptNormalization.RawTranscript.IsEmpty()
                 ? Event.Text
                 : Event.TranscriptNormalization.RawTranscript;
@@ -542,7 +560,7 @@ void ULocalLLMMicrophoneComponent::HandleSubsystemEvent(const FLocalLLMEvent& Ev
             UE_LOG(LogLocalLLMMicrophone, Display,
                 TEXT("Transcription completed for request %s: %d characters"),
                 *Event.RequestId.ToString(EGuidFormats::DigitsWithHyphensLower), RawTranscript.Len());
-            OnInternalMicrophoneEvent.Broadcast(Event);
+            OnInternalMicrophoneEvent.Broadcast(FinalEvent);
             PendingUtteranceRequests.Remove(Event.RequestId);
         }
         else if (Event.Type == ELocalLLMEventType::Error)

@@ -107,6 +107,18 @@ public:
         JoinerUtf8 = TCHAR_TO_UTF8(*Joiner);
         TokensUtf8 = TCHAR_TO_UTF8(*Tokens);
 
+        const FString DecodingMethod = Config.DecodingMethod.IsEmpty()
+            ? TEXT("greedy_search") : Config.DecodingMethod.ToLower();
+        if (DecodingMethod != TEXT("greedy_search") &&
+            DecodingMethod != TEXT("modified_beam_search"))
+        {
+            OutError = FString::Printf(TEXT(
+                "Unsupported sherpa-onnx decoding method '%s'; use greedy_search or modified_beam_search"),
+                *Config.DecodingMethod);
+            return false;
+        }
+        DecodingMethodUtf8 = TCHAR_TO_UTF8(*DecodingMethod);
+
         SherpaOnnxOfflineRecognizerConfig RecognizerConfig{};
         RecognizerConfig.feat_config.sample_rate = 16000;
         RecognizerConfig.feat_config.feature_dim = 80;
@@ -118,8 +130,8 @@ public:
         RecognizerConfig.model_config.debug = 0;
         RecognizerConfig.model_config.provider = "cpu";
         RecognizerConfig.model_config.model_type = "nemo_transducer";
-        RecognizerConfig.decoding_method = "greedy_search";
-        RecognizerConfig.max_active_paths = 4;
+        RecognizerConfig.decoding_method = DecodingMethodUtf8.c_str();
+        RecognizerConfig.max_active_paths = FMath::Clamp(Config.MaxActivePaths, 1, 16);
 
         Recognizer = SherpaOnnxCreateOfflineRecognizer(&RecognizerConfig);
         if (!Recognizer)
@@ -128,6 +140,8 @@ public:
             return false;
         }
         ConfiguredLanguage = Config.Language;
+        FinalSilencePaddingMilliseconds = FMath::Clamp(
+            Config.FinalSilencePaddingMilliseconds, 0, 1000);
         return true;
     }
 
@@ -171,6 +185,23 @@ public:
             Samples = Mono.GetData();
         }
 
+        // Offline transducer models need a small amount of right-context to flush the final
+        // tokens. Supplying an utterance that ends close to speech can otherwise turn
+        // "Do you like your job here?" into "Do you like". This padding is synthesized in
+        // memory, so it does not add a real-time endpoint/VAD wait.
+        TArray<float> FinalizedSamples;
+        const int32 PaddingSamples = Audio.SampleRate > 0
+            ? FMath::DivideAndRoundUp(Audio.SampleRate * FinalSilencePaddingMilliseconds, 1000)
+            : 0;
+        if (PaddingSamples > 0)
+        {
+            FinalizedSamples.Reserve(SampleCount + PaddingSamples);
+            FinalizedSamples.Append(Samples, SampleCount);
+            FinalizedSamples.AddZeroed(PaddingSamples);
+            Samples = FinalizedSamples.GetData();
+            SampleCount = FinalizedSamples.Num();
+        }
+
         const SherpaOnnxOfflineStream* Stream = SherpaOnnxCreateOfflineStream(Recognizer);
         if (!Stream)
         {
@@ -202,7 +233,9 @@ private:
     std::string DecoderUtf8;
     std::string JoinerUtf8;
     std::string TokensUtf8;
+    std::string DecodingMethodUtf8;
     FString ConfiguredLanguage;
+    int32 FinalSilencePaddingMilliseconds = 320;
 };
 }
 

@@ -368,7 +368,13 @@ struct LOCALMULTIMODALLLM_API FLocalLLMConversationMemorySettings
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Memory") bool bScaleBudgetsWithModelContext = true;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Memory", meta = (ClampMin = "2")) int32 CompactAfterTurns = 10;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Memory", meta = (ClampMin = "1")) int32 RecentTurnsToKeep = 5;
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Memory", meta = (ClampMin = "128")) int32 MaxGeneratedContextTokens = 2560;
+    /**
+     * Soft planning target for generated character, world, custom, and tool
+     * context. Exceeding it emits a warning but does not reject a turn while
+     * the complete prompt still fits the loaded model context.
+     */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Memory", meta = (ClampMin = "128"))
+    int32 MaxGeneratedContextTokens = 2560;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Memory", meta = (ClampMin = "128")) int32 MaxCompactedMemoryTokens = 1024;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Memory", meta = (ClampMin = "128")) int32 RecentDialogueTokenBudget = 2560;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Memory", meta = (ClampMin = "32")) int32 MaxPlayerInputTokens = 768;
@@ -632,6 +638,18 @@ struct LOCALMULTIMODALLLM_API FLocalLLMSpeechToTextConfig
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Speech To Text", meta = (ClampMin = "0")) int32 Threads = 0;
     /** Providers may ignore this when no compatible accelerator is installed. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Speech To Text") bool bUseGpu = false;
+    /** Transducer search strategy. sherpa-onnx supports greedy_search and modified_beam_search. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Speech To Text")
+    FString DecodingMethod = TEXT("greedy_search");
+    /** Candidate paths retained by beam-capable recognizers. Ignored by greedy decoding. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Speech To Text",
+        meta = (ClampMin = "1", ClampMax = "16")) int32 MaxActivePaths = 4;
+    /**
+     * Synthetic silence appended to an offline transcription buffer so transducer decoders can
+     * emit words at the physical end of the capture. This is not a real-time VAD delay.
+     */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Speech To Text",
+        meta = (ClampMin = "0", ClampMax = "1000")) int32 FinalSilencePaddingMilliseconds = 320;
 
     bool IsEnabled() const { return !Provider.IsNone() && Provider != FName(TEXT("none")); }
 };
@@ -682,7 +700,7 @@ struct LOCALMULTIMODALLLM_API FLocalLLMTextToSpeechConfig
     /** Gently level streamed PCM before playback so different voices and providers have comparable conversational volume. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Text To Speech|Loudness") bool bNormalizeOutputLoudness = true;
     /** Target RMS for voiced audio. Disable normalization when intentional whisper/yell dynamics must be preserved. */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Text To Speech|Loudness", meta = (ClampMin = "-40.0", ClampMax = "-12.0")) float TargetOutputRmsDbfs = -27.0f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Text To Speech|Loudness", meta = (ClampMin = "-40.0", ClampMax = "-12.0")) float TargetOutputRmsDbfs = -24.0f;
     /** Maximum automatic boost. Near-silence is never boosted. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Text To Speech|Loudness", meta = (ClampMin = "0.0", ClampMax = "18.0")) float MaxOutputGainDb = 8.0f;
     /** Maximum automatic reduction for unusually loud voices. */
@@ -691,8 +709,14 @@ struct LOCALMULTIMODALLLM_API FLocalLLMTextToSpeechConfig
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Text To Speech|Loudness", meta = (ClampMin = "-12.0", ClampMax = "-0.1")) float OutputPeakCeilingDbfs = -3.0f;
     /** Time used to smooth gain changes after the first voiced chunk. Higher values preserve more short-term expression. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Text To Speech|Loudness", meta = (ClampMin = "0.05", ClampMax = "3.0")) float LoudnessAdaptationSeconds = 0.75f;
+    /** Provider-neutral onset ramp that suppresses clicks and codec transients without noticeably swallowing the first phoneme. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Text To Speech|Playback",
+        meta = (ClampMin = "0", ClampMax = "500")) int32 OutputFadeInMilliseconds = 40;
+    /** Silence inserted between consecutively queued speech requests so sentence streams retain natural pacing. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Text To Speech|Playback",
+        meta = (ClampMin = "0", ClampMax = "1000")) int32 InterSegmentPauseMilliseconds = 160;
     /** Zero disables splitting. Otherwise longer queued text is divided at a natural clause boundary. */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Text To Speech", meta = (ClampMin = "0", ClampMax = "1000")) int32 MaxQueuedSegmentCharacters = 0;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Text To Speech", meta = (ClampMin = "0", ClampMax = "1000")) int32 MaxQueuedSegmentCharacters = 96;
     /** Preferred position for a long-text split. Natural punctuation or conjunctions take precedence. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Text To Speech", meta = (ClampMin = "0.5", ClampMax = "0.7")) float PreferredQueuedSplitFraction = 0.58f;
 
@@ -789,6 +813,12 @@ struct LOCALMULTIMODALLLM_API FLocalLLMMicrophoneConfig
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Microphone") bool bEmitPartialTranscripts = true;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Microphone", meta = (ClampMin = "0.5", ClampMax = "10.0")) float PartialTranscriptIntervalSeconds = 2.0f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Microphone") bool bAutoSubmitFinalUtterance = true;
+    /**
+     * When true, the final transcript is immediately submitted to the character session.
+     * Disable to inspect or conservatively normalize TranscriptionCompleted before submitting text yourself.
+     */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Microphone")
+    bool bAutoSubmitTranscriptToConversation = true;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Microphone") FLocalLLMSpeakerVerificationConfig SpeakerVerification;
 };
 

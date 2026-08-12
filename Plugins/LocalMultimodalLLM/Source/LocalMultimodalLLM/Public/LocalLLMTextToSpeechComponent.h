@@ -110,6 +110,7 @@ private:
         FLocalLLMTextToSpeechRequest Request;
         FGuid SessionId;
         FName CharacterId;
+        bool bSuppressOnsetFade = false;
     };
 
     void StartNextQueuedSpeech();
@@ -134,6 +135,9 @@ private:
     bool bPendingVoicePrewarm = false;
     FName PendingPrewarmCharacterId;
     TSet<FGuid> RequestsWithStreamedAudio;
+    TSet<FGuid> RequestsNeedingLeadingPause;
+    bool bInsertPauseBeforeNextSpeech = false;
+    bool bSuppressOnsetFadeForNextSynthesis = false;
     TSet<FGuid> TimedOutRequests;
     FTimerHandle SynthesisWatchdogTimer;
     FGuid WatchdogRequestId;

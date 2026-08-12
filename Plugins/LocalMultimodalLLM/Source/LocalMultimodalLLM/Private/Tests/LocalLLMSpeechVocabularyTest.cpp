@@ -45,6 +45,21 @@ bool FLocalLLMSpeechVocabularyTest::RunTest(const FString&)
     Result = ULocalLLMSpeechVocabularyLibrary::NormalizeTranscript(
         TEXT("A minus tirithian poem."), { Minas, Other }, { TEXT("gondor") });
     TestFalse(TEXT("An ambiguous variant inside a larger word does not request confirmation"), Result.bNeedsConfirmation);
+
+    FLocalLLMSpeechVocabularyEntry Taro;
+    Taro.CanonicalText = TEXT("Taro");
+    Taro.KnownAsrVariants = { TEXT("Tar Row"), TEXT("Tarro") };
+    Taro.EntityId = TEXT("Taro");
+    Taro.EntityType = ELocalLLMSpeechVocabularyEntityType::Character;
+    Taro.bAllowBodyCorrection = true;
+    Result = ULocalLLMSpeechVocabularyLibrary::NormalizeTranscript(
+        TEXT("He says his name is Tar Row."), { Taro }, {});
+    TestEqual(TEXT("Exact scene-authored character soundalike is corrected"),
+        Result.CanonicalTranscript, FString(TEXT("He says his name is Taro.")));
+    Result = ULocalLLMSpeechVocabularyLibrary::NormalizeTranscript(
+        TEXT("He says his name is Tara."), { Taro }, {});
+    TestEqual(TEXT("A valid unconfigured name is preserved"),
+        Result.CanonicalTranscript, FString(TEXT("He says his name is Tara.")));
     return true;
 }
 

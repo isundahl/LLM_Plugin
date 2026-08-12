@@ -12,18 +12,21 @@ assemble either runtime themselves.
 
 ## Do not ship
 
-Exclude all of the following:
+Exclude all of the following from the **plug-in folder**:
 
 - `Intermediate/`
 - `Binaries/Win64/*.pdb`
 - object files, compiler caches, logs, and crash output
-- GGUF, ONNX, PyTorch, SafeTensors, and other model weights
+- model weights (stage approved starter weights at the release root under
+  `Models`, never inside `Plugins/LocalMultimodalLLM`)
 - Python environments and benchmark output under the project's `Saved/`
 - raw voice datasets and derived recordings
 - project-only demo maps, MetaHumans, animation packs, and licensed environment assets
 
 The project's EARS benchmark recordings and TTS benchmark configurations live
-under `<Project>/TestData/TTS`, outside the plug-in, for this reason.
+under `<Project>/TestData/TTS`, outside the plug-in, for this reason. This rule
+does not prohibit the approved, licensed starter weights in the Full Starter
+Bundle; see [Starter Models](StarterModels.md).
 
 Keep the plug-in's small cooked `Content/Examples/DA_ExampleLocalLLMToolSet`
 asset if the distributable is meant to include the starter tool-set example.
@@ -89,8 +92,10 @@ The native `sherpa-onnx` STT and Pocket TTS adapter require:
 - `onnxruntime_providers_shared.dll`
 - the matching `sherpa-onnx-c-api.lib` and headers
 
-Speech model directories remain external project assets. NeuTTS-2E is a
-development Python/CPU adapter and Chatterbox is a development Python/CUDA
+Speech model directories are project-level assets rather than files inside the
+plug-in. The Full Starter Bundle stages its approved Parakeet and Pocket model
+directories under `<Project>/Models`; a source-only checkout does not. NeuTTS-2E
+is a development Python/CPU adapter and Chatterbox is a development Python/CUDA
 adapter. Both are registered only in non-Shipping Win64 builds and rely on
 project-side environments under `Saved/`; neither is staged as part of the
 plug-in. The built-in Shipping speech-output path is native Pocket TTS.

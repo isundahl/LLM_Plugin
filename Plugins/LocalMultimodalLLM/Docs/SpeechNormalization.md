@@ -162,6 +162,12 @@ Suggested operations/events:
 
 Create a `Local LLM Speech Vocabulary` Data Asset and call `Set Speech Vocabulary`, or supply entries directly with `Set Speech Vocabulary Entries`. Use `Set Active Speech Vocabulary Tags` as location/quest state changes. The implementation applies exact, complete-span `KnownAsrVariants` only when `bAllowBodyCorrection` is enabled and every activation tag is active. It emits `TranscriptNormalized` with an audit record, or `TranscriptAmbiguous` and pauses automatic submission when active entries claim the same variant. Fuzzy body correction remains intentionally unsupported.
 
+The project-only MetaHuman demo exposes `Demo Speech Vocabulary Entries` on its
+coordinator and installs them before STT is loaded. Its default example safely
+maps the exact variants `Tar Row` and `Tarro` to `Taro`; it deliberately does not
+map `Tara`, because that is a valid name. Projects should normally move equivalent
+entries into a reusable `Local LLM Speech Vocabulary` Data Asset.
+
 ## Do not make the model globally uncertain
 
 The text model does not receive audio; without provenance, it reasonably treats the transcript as the player's exact message. However, adding a standing instruction that every player message may be wrong could make the character second-guess correct dialogue.

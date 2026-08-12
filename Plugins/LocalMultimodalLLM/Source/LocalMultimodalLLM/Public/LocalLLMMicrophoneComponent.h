@@ -93,7 +93,9 @@ private:
     void BroadcastLocalEvent(ELocalLLMEventType Type, const FString& Text = {}, const FGuid& RequestId = {});
 
     struct FImpl;
-    TUniquePtr<FImpl> Impl;
+    // Raw ownership keeps Unreal's generated vtable-helper constructor from instantiating a
+    // TUniquePtr deleter in a translation unit where FImpl is intentionally incomplete.
+    FImpl* Impl = nullptr;
     TWeakObjectPtr<ULocalLLMSubsystem> Subsystem;
     FGuid SessionId;
     FGuid ActivePartialRequestId;

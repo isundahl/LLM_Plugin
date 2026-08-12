@@ -269,8 +269,17 @@ public:
                 StreamChunkSamples](const FString& StreamPath)
             {
                 TArray<uint8> StreamBytes;
-                if (!FFileHelper::LoadFileToArray(StreamBytes, *StreamPath) ||
-                    StreamBytes.Num() % sizeof(float) != 0) return false;
+                // The Python worker publishes segments with an atomic rename, but Windows
+                // indexing or antivirus can briefly make the visible file unopenable. Use a
+                // silent reader and leave the sequence in place so the polling loop retries it.
+                TUniquePtr<FArchive> Reader(
+                    IFileManager::Get().CreateFileReader(*StreamPath, FILEREAD_Silent));
+                const int64 StreamByteCount = Reader ? Reader->TotalSize() : 0;
+                if (!Reader || StreamByteCount <= 0 || StreamByteCount > MAX_int32 ||
+                    StreamByteCount % sizeof(float) != 0) return false;
+                StreamBytes.SetNumUninitialized(static_cast<int32>(StreamByteCount));
+                Reader->Serialize(StreamBytes.GetData(), StreamBytes.Num());
+                if (Reader->IsError()) return false;
                 const int32 NewSampleCount = StreamBytes.Num() / sizeof(float);
                 const int32 PreviousSampleCount = PendingStreamSamples.Num();
                 PendingStreamSamples.AddUninitialized(NewSampleCount);

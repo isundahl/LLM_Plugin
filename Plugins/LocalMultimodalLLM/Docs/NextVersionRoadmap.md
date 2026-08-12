@@ -59,6 +59,14 @@ The proposed Blueprint/API flow is detailed in [ConversationRouting.md](Conversa
 ### Production speech hardening
 
 - Profile the implemented native `pocket-tts` sherpa-onnx provider on representative low-end CPUs.
+- Prototype an optional native `audio.cpp` provider behind the existing TTS
+  registry rather than replacing the proven providers immediately. Benchmark
+  PocketTTS and Chatterbox parity, true time to first playable PCM, sustained
+  real-time factor, voice-state reuse, cancellation, CPU/CUDA/Vulkan memory,
+  packaged Win64 size, and symbol/backend coexistence with llama.cpp. Consider
+  migration only if its Unreal-facing API can be pinned and its chunk delivery
+  matches or improves the current sherpa-onnx Pocket path. Track NeuTTS-2E
+  separately because it is not presently an audio.cpp-supported family.
 - Define model/reference-voice installation and packaged-game staging policy.
 - Bound and expose the existing voice-embedding cache based on measured memory.
 - Harden the implemented Unreal procedural-PCM playback, interruption, and
@@ -116,6 +124,40 @@ The proposed Blueprint/API flow is detailed in [ConversationRouting.md](Conversa
 - Clear handling for models whose native tool format is XML or another schema.
 
 ## Larger v2 candidates
+
+### Pluggable local, remote, and project-defined inference providers
+
+Make the primary dialogue model optional behind the same provider boundary while
+keeping character sessions, context assembly, memory, relationship guidance,
+guards, tool authorization, and Unreal events owned by the plugin.
+
+- Define an asynchronous `ILocalLLMInferenceProvider`-style interface for request
+  submission, cancellation, streamed text deltas, structured tool calls, usage,
+  errors, and capability discovery.
+- Retain llama.cpp as the bundled local provider, but allow a project module to
+  register its own native provider without modifying the plugin.
+- Add an optional generic HTTP provider and an OpenAI-compatible protocol adapter;
+  keep vendor-specific authentication and wire formats in separate adapters.
+- Support per-project and optionally per-character provider/profile selection, so
+  a developer can use a preferred hosted or self-hosted AI while preserving the
+  same character-sheet and Blueprint workflow.
+- Normalize provider-specific chat roles, tool schemas, finish reasons, token
+  accounting, and streaming behavior into the plugin's existing events.
+- Never serialize API secrets in character assets, config committed to source
+  control, logs, or packaged client content. Accept credentials through a
+  project-supplied secure resolver, and document that secrets in a client build
+  cannot be made truly private without a developer-controlled relay service.
+- Expose offline/timeout/rate-limit/fallback policies explicitly. Do not silently
+  send local dialogue to a remote service or silently switch providers.
+- Add conformance tests using a mock provider plus at least one local HTTP test
+  server, including cancellation, malformed tool calls, partial streams,
+  provider failure, and local fallback.
+
+This is a moderate architectural change rather than a rewrite: most character
+and gameplay systems can remain unchanged, but inference lifecycle code must be
+separated cleanly from llama.cpp before promising a stable third-party provider
+API. Target this for v2.0 after the v1 public API and packaged-build behavior are
+stable.
 
 ### Speculative decoding and performance
 
