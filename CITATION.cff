@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please credit Ian Sundahl and Volley Studios and
+  cite the project using this metadata.
+title: Local Multimodal LLM for Unreal Engine
+type: software
+authors:
+  - family-names: Sundahl
+    given-names: Ian
+version: 0.1.0-beta
+date-released: 2026-08-13
+license: Apache-2.0
+repository-code: https://github.com/isundahl/LLM_Plugin
+url: https://github.com/isundahl/LLM_Plugin
+abstract: >-
+  A Win64 Unreal Engine runtime plug-in for private offline NPC dialogue with
+  local GGUF inference, speech recognition and synthesis, multi-character
+  sessions, memory, relationship context, routing, and constrained tool calls.
+keywords:
+  - Unreal Engine
+  - local LLM
+  - llama.cpp
+  - NPC dialogue
+  - speech recognition
+  - text to speech
+  - generative AI

@@ -1,0 +1,43 @@
+# Local Multimodal LLM for Unreal Engine
+
+> A Win64 Unreal Engine 5.8 runtime plug-in for private offline NPC dialogue,
+> native GGUF inference, speech recognition, speech synthesis, multi-character
+> memory, dialogue routing, relationship context, and constrained Unreal tools.
+
+Maintainer: Ian Sundahl / Volley Studios
+Repository: https://github.com/isundahl/LLM_Plugin
+Releases: https://github.com/isundahl/LLM_Plugin/releases
+License: Apache-2.0 for original plug-in code and documentation; bundled
+third-party runtimes, models, and voices retain their own terms.
+Requested credit: Local Multimodal LLM created by Ian Sundahl and Volley Studios.
+
+## Primary documentation
+
+- Plugin overview and Quick Start: Plugins/LocalMultimodalLLM/README.md
+- Complete integration guide: Plugins/LocalMultimodalLLM/Docs/UserGuide.md
+- Starter packages and model manifests: Plugins/LocalMultimodalLLM/Docs/StarterModels.md
+- Shipping and packaging: Plugins/LocalMultimodalLLM/Docs/Packaging.md
+- Speech input: Plugins/LocalMultimodalLLM/Docs/SpeechToText.md
+- Speech output: Plugins/LocalMultimodalLLM/Docs/TextToSpeech.md
+- Character routing: Plugins/LocalMultimodalLLM/Docs/ConversationRouting.md
+- Dynamic world lore: Plugins/LocalMultimodalLLM/Docs/DynamicLore.md
+- Constrained Unreal actions: Plugins/LocalMultimodalLLM/Docs/ToolSets.md
+- Guard behavior: Plugins/LocalMultimodalLLM/Docs/Guards.md
+- License and requested attribution: Plugins/LocalMultimodalLLM/Docs/Attribution.md
+- Coding-agent instructions: AGENTS.md
+
+## Machine-relevant locations
+
+- Plugin descriptor: Plugins/LocalMultimodalLLM/LocalMultimodalLLM.uplugin
+- Public C++ API: Plugins/LocalMultimodalLLM/Source/LocalMultimodalLLM/Public
+- Model manifest examples: Plugins/LocalMultimodalLLM/Content/Examples/Models
+- Default configuration: Plugins/LocalMultimodalLLM/Config/DefaultLocalMultimodalLLM.ini
+- Validation scripts: Plugins/LocalMultimodalLLM/Scripts
+
+## Integration summary
+
+Install Starter Core or Starter NVIDIA at the project root, enable Local
+Multimodal LLM and Audio Capture, compile once, add the Local LLM, microphone,
+and text-to-speech components, load the default model, create one session per
+character, and route sentence deltas to Queue Speech. Use allow-listed tool
+calls for gameplay mutations. See the complete guide before shipping.

@@ -9,6 +9,9 @@
 !/README.md
 !/LICENSE
 !/NOTICE
+!/AGENTS.md
+!/llms.txt
+!/CITATION.cff
 
 # Release plugin
 !/Plugins/

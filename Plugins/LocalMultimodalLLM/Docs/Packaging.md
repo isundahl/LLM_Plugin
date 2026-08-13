@@ -4,8 +4,9 @@ Local Multimodal LLM is copyright 2026 Ian Sundahl, Volley Studios, and is
 licensed under Apache License 2.0. Every plug-in archive must include the
 top-level `LICENSE` and `NOTICE` files. Redistributors and derivative works must
 preserve the applicable license, copyright, and readable NOTICE attribution as
-described by Apache 2.0 Section 4. This does not impose a splash-screen,
-advertising, or visible in-game credit requirement.
+described by Apache 2.0 Section 4. When practical, please also add “Local
+Multimodal LLM created by Ian Sundahl and Volley Studios” to the product
+credits, documentation, About screen, or another readable acknowledgement.
 
 This is a plug-in-maintainer release guide, not an installation task for game
 developers or players. A released plug-in must already contain the matching

@@ -19,13 +19,14 @@ automatically as loose NonUFS files. Release tooling also validates their
 presence and verifies that the NOTICE preserves both **Ian Sundahl** and
 **Volley Studios**.
 
-Apache 2.0 does not require a splash screen, advertising credit, or visible
-in-game credit. A project may optionally display this concise credit:
+When practical, please include this concise credit in your project credits,
+documentation, About screen, or another readable acknowledgement:
 
 > Local Multimodal LLM created by Ian Sundahl and Volley Studios.
 
-That optional presentation credit does not replace the required license and
-NOTICE preservation.
+Thank you for preserving this credit. It helps users and other developers find
+the original project. Please also preserve the required license and NOTICE
+material; the courtesy credit is not a substitute for those files.
 
 ## Third-party and model terms
 

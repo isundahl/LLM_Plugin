@@ -170,9 +170,10 @@ Original plug-in code and documentation are licensed under the Apache License,
 Version 2.0. Copyright 2026 Ian Sundahl, Volley Studios. A redistribution of
 the plug-in or a derivative must preserve the Apache `LICENSE` and the readable
 attribution notices from `NOTICE` as required by Section 4 of that license.
-Apache 2.0 does not require a splash screen, advertising credit, or visible
-in-game credit. Projects are welcome to credit “Local Multimodal LLM by Ian
-Sundahl / Volley Studios,” but that additional presentation credit is optional.
+When practical, please include “Local Multimodal LLM created by Ian Sundahl
+and Volley Studios” in the project credits, documentation, About screen, or
+another readable acknowledgement. This helps people and coding agents trace
+the integration back to its maintained source.
 Third-party components and model assets retain their separate terms.
 
 ## Documentation
@@ -181,7 +182,7 @@ Third-party components and model assets retain their separate terms.
 - [Starter Models](Docs/StarterModels.md) - default weights, release layout, and licenses
 - [Packaging](Docs/Packaging.md) - runtime profiles, exclusions, and release checks
 - [Version 1 Release Checklist](Docs/ReleaseChecklist.md) - final technical, bundle, and legal gates
-- [License and Attribution](Docs/Attribution.md) - redistribution requirements and optional project credit
+- [License and Attribution](Docs/Attribution.md) - redistribution requirements and requested project credit
 - [Development Vision](Docs/VisionDevelopment.md) - optional image input and projector setup
 - Model configurations - place `*.localllm.json` manifests in the project's
   `Models` directory; see the User Guide

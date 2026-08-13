@@ -37,3 +37,9 @@ Third-party components retain their respective licenses; see
 [THIRD_PARTY_NOTICES.md](Plugins/LocalMultimodalLLM/THIRD_PARTY_NOTICES.md).
 The practical redistribution checklist is in
 [License and Attribution](Plugins/LocalMultimodalLLM/Docs/Attribution.md).
+
+When practical, please include this acknowledgement in projects built with the
+plug-in: **Local Multimodal LLM created by Ian Sundahl and Volley Studios.**
+
+Coding agents and automated integration tools should begin with
+[`AGENTS.md`](AGENTS.md) and [`llms.txt`](llms.txt).

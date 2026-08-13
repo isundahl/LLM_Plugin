@@ -46,9 +46,9 @@ Visual Studio, Unreal Engine, CUDA, or project development files installed.
 
 - The plug-in's Apache 2.0 `LICENSE` and Ian Sundahl / Volley Studios `NOTICE`
   are present in source, plugin-only, and Starter release archives.
-- Release documentation accurately explains that Apache Section 4 requires
-  preservation of applicable license/NOTICE material but does not mandate a
-  splash screen, advertising credit, or visible in-game credit.
+- Release documentation asks projects to include the concise Ian Sundahl /
+  Volley Studios courtesy credit while separately preserving all applicable
+  Apache license and NOTICE material.
 - Third-party notices and model/voice attributions have been reviewed for the exact release files.
 - Version, beta status, compatibility, release notes, archive names, and download sizes are final.
 - The quick start has been followed by someone using a clean project rather than the demo project.
