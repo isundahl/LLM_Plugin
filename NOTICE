@@ -1,0 +1,10 @@
+Local Multimodal LLM for Unreal Engine
+Copyright 2026 Ian Sundahl, Volley Studios
+
+This product was created by Ian Sundahl and Volley Studios.
+
+This product includes software developed by the llama.cpp/ggml contributors
+and software developed by the sherpa-onnx and ONNX Runtime contributors.
+Additional third-party copyright, license, and attribution information appears
+in Plugins/LocalMultimodalLLM/THIRD_PARTY_NOTICES.md and the license files
+distributed with those components and model assets.

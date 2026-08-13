@@ -17,8 +17,10 @@ namespace
 {
 FString ResolveProjectPath(FString Path)
 {
-    if (FPaths::IsRelative(Path)) Path = FPaths::Combine(FPaths::ProjectDir(), Path);
-    return FPaths::ConvertRelativePathToFull(Path);
+    if (!FPaths::IsRelative(Path)) return FPaths::ConvertRelativePathToFull(Path);
+    const FString ProjectRoot = FPaths::ConvertRelativePathToFull(
+        FPlatformProcess::BaseDir(), FPaths::ProjectDir());
+    return FPaths::Combine(ProjectRoot, Path);
 }
 
 bool SaveJsonAtomically(const FString& Path, const TSharedRef<FJsonObject>& Object)

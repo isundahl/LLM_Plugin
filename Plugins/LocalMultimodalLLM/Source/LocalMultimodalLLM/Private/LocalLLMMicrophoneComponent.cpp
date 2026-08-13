@@ -3,6 +3,7 @@
 #include "AudioCaptureCore.h"
 #include "Containers/Queue.h"
 #include "Engine/GameInstance.h"
+#include "Engine/World.h"
 #include "LocalLLMSubsystem.h"
 #include "Speech/LocalVoiceActivityDetector.h"
 

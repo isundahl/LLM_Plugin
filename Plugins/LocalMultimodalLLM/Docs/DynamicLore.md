@@ -1,5 +1,7 @@
 # Dynamic lore and developed canon
 
+Copyright 2026 Ian Sundahl, Volley Studios. Licensed under Apache 2.0.
+
 Static character sheets and `CanonicalFacts` are the durable authoring source.
 Dialogue, compacted memory, and model output never become canon automatically.
 

@@ -8,6 +8,11 @@
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 
+void FLocalLLMInferenceWorkerDeleter::operator()(FLocalLLMInferenceWorker* Worker) const
+{
+    delete Worker;
+}
+
 namespace
 {
 bool IsCharacterDevelopedCategory(const ELocalLLMDynamicLoreCategory Category)
@@ -57,7 +62,7 @@ void ApplyProjectGenerationSettings(FLocalLLMModelConfig& Config)
 void ULocalLLMSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
     Super::Initialize(Collection);
-    Worker = MakeUnique<FLocalLLMInferenceWorker>();
+    Worker.Reset(new FLocalLLMInferenceWorker());
     FLocalLLMCharacterProfile DefaultCharacter;
     DefaultCharacter.CharacterId = TEXT("default");
     DefaultCharacter.DisplayName = TEXT("Assistant");

@@ -1,5 +1,7 @@
 # Conversation relationship evaluation
 
+Copyright 2026 Ian Sundahl, Volley Studios. Licensed under Apache 2.0.
+
 Relationship evaluation is an optional session feature, not an LLM-callable tool. The game decides when evaluation runs. The speaking character cannot choose when to score a conversation or directly change a rating.
 
 ## Configure a character

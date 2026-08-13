@@ -1,3 +1,4 @@
+// Copyright 2026 Ian Sundahl, Volley Studios. SPDX-License-Identifier: Apache-2.0
 #pragma once
 
 #include "CoreMinimal.h"
@@ -473,6 +474,8 @@ struct LOCALMULTIMODALLLM_API FLocalLLMModelLoadParameters
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Load", meta = (ClampMin = "32")) int32 BatchSize = 512;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Load", meta = (ClampMin = "32")) int32 MicroBatchSize = 256;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Load") int32 GpuLayers = -1;
+    /** If a GPU-requested model load fails, retry once on CPU. Disable to fail fast instead. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Load") bool bAllowGpuLoadFallback = true;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Load", meta = (ClampMin = "0")) int32 MainGpu = 0;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Load", meta = (ClampMin = "0")) int32 Threads = 0;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Local LLM|Load", meta = (ClampMin = "0")) int32 BatchThreads = 0;

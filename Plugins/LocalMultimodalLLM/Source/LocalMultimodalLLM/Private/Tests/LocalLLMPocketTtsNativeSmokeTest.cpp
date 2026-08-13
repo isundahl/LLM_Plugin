@@ -17,7 +17,7 @@ bool FLocalLLMPocketTtsNativeSmokeTest::RunTest(const FString&)
         FLocalTextToSpeechBackendRegistry::Create(TEXT("pocket-tts"));
     if (!TestNotNull(TEXT("Pocket TTS provider can be created"), Backend.Get())) return false;
 
-    const FString ModelDirectory = FPaths::Combine(FPaths::ProjectDir(), TEXT("Models"), TEXT("PocketTTS"),
+    const FString ModelDirectory = FPaths::Combine(TEXT("Models"), TEXT("PocketTTS"),
         TEXT("sherpa-onnx-pocket-tts-int8-2026-01-26"));
     FLocalLLMTextToSpeechConfig Config;
     Config.Provider = TEXT("pocket-tts");
@@ -97,26 +97,51 @@ bool FLocalLLMPocketTtsNativeSmokeTest::RunTest(const FString&)
     TestTrue(TEXT("Pocket cancellation reports its reason"), CancelError.Contains(TEXT("cancelled")));
     Backend->Unload();
 
-    Config.SpeakerReferencePath = TEXT("Plugin:/Content/Voices/pocket-bill-boerst.wav");
-    Config.VoiceId = TEXT("pocket-bill-boerst");
-    Error.Reset();
-    if (!TestTrue(TEXT("Pocket TTS loads the bundled male reference"), Backend->Load(Config, Error)))
+    struct FBundledVoiceCase
     {
-        AddError(Error);
-        return false;
+        const TCHAR* VoiceId;
+        const TCHAR* FileName;
+        const TCHAR* Text;
+    };
+    const FBundledVoiceCase VoiceCases[] =
+    {
+        { TEXT("pocket-bill-boerst"), TEXT("pocket-bill-boerst.wav"),
+            TEXT("The parcel arrived this morning.") },
+        { TEXT("pocket-peter-yearsley"), TEXT("pocket-peter-yearsley.wav"),
+            TEXT("The north road is clear today.") },
+        { TEXT("pocket-stuart-bell"), TEXT("pocket-stuart-bell.wav"),
+            TEXT("I will meet you by the station.") }
+    };
+
+    for (const FBundledVoiceCase& VoiceCase : VoiceCases)
+    {
+        Config.SpeakerReferencePath = FString::Printf(
+            TEXT("Plugin:/Content/Voices/%s"), VoiceCase.FileName);
+        Config.VoiceId = VoiceCase.VoiceId;
+        Error.Reset();
+        const FString LoadLabel = FString::Printf(TEXT("Pocket TTS loads bundled voice %s"), VoiceCase.VoiceId);
+        if (!TestTrue(LoadLabel, Backend->Load(Config, Error)))
+        {
+            AddError(Error);
+            return false;
+        }
+
+        Request.Text = VoiceCase.Text;
+        Request.VoiceId = Config.VoiceId;
+        FLocalTextToSpeechResult VoiceResult;
+        TArray<FLocalLLMAudioChunk> VoiceChunks;
+        const bool bVoiceGenerated = Backend->Synthesize(Request, VoiceResult, Error,
+            []() { return false; },
+            [&VoiceChunks](const FLocalLLMAudioChunk& Chunk) { VoiceChunks.Add(Chunk); });
+        TestTrue(FString::Printf(TEXT("Pocket TTS synthesizes bundled voice %s"), VoiceCase.VoiceId),
+            bVoiceGenerated);
+        if (!bVoiceGenerated) AddError(Error);
+        TestTrue(FString::Printf(TEXT("Bundled voice %s produces valid PCM"), VoiceCase.VoiceId),
+            VoiceResult.Audio.IsValid());
+        TestTrue(FString::Printf(TEXT("Bundled voice %s streams PCM"), VoiceCase.VoiceId),
+            !VoiceChunks.IsEmpty());
+        Backend->Unload();
     }
-    Request.Text = TEXT("The parcel arrived this morning.");
-    Request.VoiceId = Config.VoiceId;
-    FLocalTextToSpeechResult TaroResult;
-    TArray<FLocalLLMAudioChunk> TaroChunks;
-    const bool bTaroGenerated = Backend->Synthesize(Request, TaroResult, Error,
-        []() { return false; },
-        [&TaroChunks](const FLocalLLMAudioChunk& Chunk) { TaroChunks.Add(Chunk); });
-    TestTrue(TEXT("Pocket TTS synthesizes the bundled male voice"), bTaroGenerated);
-    if (!bTaroGenerated) AddError(Error);
-    TestTrue(TEXT("Bundled male voice produces valid PCM"), TaroResult.Audio.IsValid());
-    TestTrue(TEXT("Bundled male voice streams PCM"), !TaroChunks.IsEmpty());
-    Backend->Unload();
     return !HasAnyErrors();
 }
 

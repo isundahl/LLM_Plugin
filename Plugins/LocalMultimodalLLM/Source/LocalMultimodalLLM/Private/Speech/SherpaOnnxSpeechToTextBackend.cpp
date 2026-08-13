@@ -43,7 +43,9 @@ FString ResolveModelDirectory(const FString& ConfiguredPath)
     {
         // Configuration paths are project-relative by default. Also accept a plugin-relative
         // path so a distributor can bundle an STT model inside the plugin if desired.
-        Candidates.Add(FPaths::Combine(FPaths::ProjectDir(), ConfiguredPath));
+        const FString ProjectRoot = FPaths::ConvertRelativePathToFull(
+            FPlatformProcess::BaseDir(), FPaths::ProjectDir());
+        Candidates.Add(FPaths::Combine(ProjectRoot, ConfiguredPath));
         if (const TSharedPtr<IPlugin> Plugin =
                 IPluginManager::Get().FindPlugin(TEXT("LocalMultimodalLLM")); Plugin.IsValid())
         {

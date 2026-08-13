@@ -4,6 +4,8 @@
 
 #include "HAL/PlatformProcess.h"
 #include "Inference/InferenceWorker.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "Models/LocalLLMModelRegistry.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -23,7 +25,11 @@ bool FLocalLLMNativeSmokeTest::RunTest(const FString& Parameters)
     if (!ModelInfo.bCompatible) return false;
     TestEqual(TEXT("Gemma context preset"), ModelInfo.Config.Load.ContextPreset, ELocalLLMContextPreset::Standard8K);
     TestEqual(TEXT("Gemma standard context size"), ModelInfo.Config.Load.ContextSize, 8192);
-    TestEqual(TEXT("Gemma projector is lazy by default"), ModelInfo.Config.Load.ProjectorLoadPolicy, ELocalLLMProjectorLoadPolicy::Lazy);
+    TestTrue(TEXT("Gemma permits bounded GPU-to-CPU load recovery"),
+        ModelInfo.Config.Load.bAllowGpuLoadFallback);
+    TestFalse(TEXT("Gemma v1 default does not advertise vision"), ModelInfo.Config.Capabilities.bVision);
+    TestFalse(TEXT("Gemma v1 default routes audio through STT"), ModelInfo.Config.Capabilities.bAudioInput);
+    TestEqual(TEXT("Gemma v1 default disables projector loading"), ModelInfo.Config.Load.ProjectorLoadPolicy, ELocalLLMProjectorLoadPolicy::Disabled);
 
     ModelInfo.Config.Generation.MaxTokens = 32;
     ModelInfo.Config.Load.ContextSize = 4096;
@@ -37,6 +43,7 @@ bool FLocalLLMNativeSmokeTest::RunTest(const FString& Parameters)
     Worker.Enqueue(MoveTemp(Load));
 
     bool bLoaded = false;
+    FString ModelLoadedDetail;
     const double LoadDeadline = FPlatformTime::Seconds() + 180.0;
     while (!bLoaded && FPlatformTime::Seconds() < LoadDeadline)
     {
@@ -49,11 +56,22 @@ bool FLocalLLMNativeSmokeTest::RunTest(const FString& Parameters)
                 return false;
             }
             bLoaded |= Event.Type == ELocalLLMEventType::ModelLoaded;
-            if (Event.Type == ELocalLLMEventType::ModelLoaded) AddInfo(Event.Text);
+            if (Event.Type == ELocalLLMEventType::ModelLoaded)
+            {
+                ModelLoadedDetail = Event.Text;
+                AddInfo(Event.Text);
+            }
         }
         if (!bLoaded) FPlatformProcess::Sleep(0.01f);
     }
     if (!TestTrue(TEXT("Gemma text model loaded before timeout; projector remains deferred"), bLoaded)) return false;
+    FString ExpectedDiagnosticBackend;
+    if (FParse::Value(FCommandLine::Get(), TEXT("LocalLLMDiagnosticBackend="), ExpectedDiagnosticBackend))
+    {
+        TestTrue(TEXT("Requested diagnostic backend was explicitly selected"),
+            ModelLoadedDetail.Contains(TEXT("diagnostic-selected="), ESearchCase::IgnoreCase) &&
+            ModelLoadedDetail.Contains(ExpectedDiagnosticBackend, ESearchCase::IgnoreCase));
+    }
 
     const FGuid SessionId = FGuid::NewGuid();
     FLocalLLMCommand CreateSession;
@@ -167,63 +185,7 @@ bool FLocalLLMNativeSmokeTest::RunTest(const FString& Parameters)
         return false;
     };
 
-    FLocalLLMCommand ResetBeforeImage;
-    ResetBeforeImage.Type = ELocalLLMCommandType::ResetConversation;
-    ResetBeforeImage.RequestId = FGuid::NewGuid();
-    ResetBeforeImage.SessionId = SessionId;
-    Worker.Enqueue(MoveTemp(ResetBeforeImage));
     FString Ignored;
-    if (!WaitForTurn(TEXT("Reset before image"), Ignored, 10.0)) return false;
-
-    FLocalLLMCommand ImageCommand;
-    ImageCommand.Type = ELocalLLMCommandType::SubmitImage;
-    ImageCommand.RequestId = FGuid::NewGuid();
-    ImageCommand.SessionId = SessionId;
-    ImageCommand.Text = TEXT("What is the dominant color of this image? Answer with one color word.");
-    ImageCommand.Image.Width = 224;
-    ImageCommand.Image.Height = 224;
-    ImageCommand.Image.RgbPixels.SetNumUninitialized(224 * 224 * 3);
-    for (int32 Pixel = 0; Pixel < 224 * 224; ++Pixel)
-    {
-        ImageCommand.Image.RgbPixels[Pixel * 3] = 255;
-        ImageCommand.Image.RgbPixels[Pixel * 3 + 1] = 0;
-        ImageCommand.Image.RgbPixels[Pixel * 3 + 2] = 0;
-    }
-    Worker.Enqueue(MoveTemp(ImageCommand));
-    FString ImageResponse;
-    if (!WaitForTurn(TEXT("Image generation"), ImageResponse, 120.0)) return false;
-    if (ImageResponse.TrimStartAndEnd().IsEmpty())
-        AddWarning(TEXT("Gemma 4 vision completed but returned only whitespace for the synthetic red image"));
-    else
-        AddInfo(FString::Printf(TEXT("Image response: %s"), *ImageResponse));
-
-    FLocalLLMCommand ResetBeforeAudio;
-    ResetBeforeAudio.Type = ELocalLLMCommandType::ResetConversation;
-    ResetBeforeAudio.RequestId = FGuid::NewGuid();
-    ResetBeforeAudio.SessionId = SessionId;
-    Worker.Enqueue(MoveTemp(ResetBeforeAudio));
-    Ignored.Reset();
-    if (!WaitForTurn(TEXT("Reset before audio"), Ignored, 10.0)) return false;
-
-    FLocalLLMCommand AudioCommand;
-    AudioCommand.Type = ELocalLLMCommandType::SubmitAudio;
-    AudioCommand.RequestId = FGuid::NewGuid();
-    AudioCommand.SessionId = SessionId;
-    AudioCommand.Text = TEXT("Describe this short tone briefly.");
-    AudioCommand.Audio.SampleRate = 16000;
-    AudioCommand.Audio.NumChannels = 1;
-    AudioCommand.Audio.Samples.SetNumUninitialized(16000);
-    for (int32 Sample = 0; Sample < AudioCommand.Audio.Samples.Num(); ++Sample)
-    {
-        AudioCommand.Audio.Samples[Sample] = 0.2f * FMath::Sin(2.0f * PI * 440.0f * Sample / 16000.0f);
-    }
-    Worker.Enqueue(MoveTemp(AudioCommand));
-    FString AudioResponse;
-    if (!WaitForTurn(TEXT("Audio generation"), AudioResponse, 120.0)) return false;
-    if (AudioResponse.TrimStartAndEnd().IsEmpty())
-        AddWarning(TEXT("Gemma 4 experimental audio completed but returned only whitespace for the synthetic tone"));
-    else
-        AddInfo(FString::Printf(TEXT("Audio response: %s"), *AudioResponse));
 
     FLocalLLMCommand UpdateTools;
     UpdateTools.Type = ELocalLLMCommandType::UpdateTools;

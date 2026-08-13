@@ -1,3 +1,4 @@
+// Copyright 2026 Ian Sundahl, Volley Studios. SPDX-License-Identifier: Apache-2.0
 #pragma once
 
 #include "CoreMinimal.h"
@@ -12,6 +13,12 @@ class ULocalLLMCharacterSheet;
 class ULocalLLMWorldSheet;
 class ULocalLLMToolSet;
 class ULocalLLMSpeechVocabulary;
+
+/** Keeps the worker implementation private while allowing generated code to destroy the pointer safely. */
+struct FLocalLLMInferenceWorkerDeleter
+{
+    void operator()(FLocalLLMInferenceWorker* Worker) const;
+};
 
 UCLASS()
 class LOCALMULTIMODALLLM_API ULocalLLMSubsystem final : public UGameInstanceSubsystem
@@ -216,7 +223,7 @@ private:
     void DispatchEvent(const FLocalLLMEvent& Event);
     bool ValidateSession(const FGuid& SessionId, const FGuid& RequestId);
 
-    TUniquePtr<FLocalLLMInferenceWorker> Worker;
+    TUniquePtr<FLocalLLMInferenceWorker, FLocalLLMInferenceWorkerDeleter> Worker;
     FTSTicker::FDelegateHandle TickHandle;
     bool bModelLoaded = false;
     FString LoadedModelId;

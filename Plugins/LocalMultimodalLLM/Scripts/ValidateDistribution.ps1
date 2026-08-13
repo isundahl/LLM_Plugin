@@ -1,6 +1,6 @@
 param(
     [Parameter()]
-    [string]$PluginPath = (Split-Path -Parent $PSScriptRoot),
+    [string]$PluginPath,
 
     [Parameter()]
     [ValidateSet("Core", "Full")]
@@ -8,6 +8,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+if ([string]::IsNullOrWhiteSpace($PluginPath)) {
+    $PluginPath = Split-Path -Parent $PSScriptRoot
+}
 $plugin = (Resolve-Path -LiteralPath $PluginPath).Path
 $errors = [System.Collections.Generic.List[string]]::new()
 
@@ -20,7 +23,10 @@ function Require-File([string]$RelativePath) {
 foreach ($path in @(
     "LocalMultimodalLLM.uplugin",
     "README.md",
+    "LICENSE",
+    "NOTICE",
     "THIRD_PARTY_NOTICES.md",
+    "Source/ThirdParty/SherpaOnnx/ONNXRUNTIME-LICENSE",
     "Source/ThirdParty/LlamaCpp/LICENSE",
     "Source/ThirdParty/SherpaOnnx/LICENSE",
     "Source/ThirdParty/LlamaCpp/Lib/Win64/llama.lib",
@@ -29,9 +35,31 @@ foreach ($path in @(
     "Source/ThirdParty/LlamaCpp/Lib/Win64/ggml-base.lib",
     "Content/Voices/README.md",
     "Content/Voices/pocket-caro-davy.wav",
-    "Content/Voices/pocket-bill-boerst.wav"
+    "Content/Voices/pocket-bill-boerst.wav",
+    "Content/Voices/pocket-peter-yearsley.wav",
+    "Content/Voices/pocket-stuart-bell.wav"
 )) {
     Require-File $path
+}
+
+$noticePath = Join-Path $plugin "NOTICE"
+if (Test-Path -LiteralPath $noticePath -PathType Leaf) {
+    $noticeText = Get-Content -LiteralPath $noticePath -Raw
+    if ($noticeText -notmatch [regex]::Escape("Ian Sundahl")) {
+        $errors.Add("NOTICE does not preserve the Ian Sundahl attribution")
+    }
+    if ($noticeText -notmatch [regex]::Escape("Volley Studios")) {
+        $errors.Add("NOTICE does not preserve the Volley Studios attribution")
+    }
+}
+
+$descriptorPath = Join-Path $plugin "LocalMultimodalLLM.uplugin"
+if (Test-Path -LiteralPath $descriptorPath -PathType Leaf) {
+    $descriptorText = Get-Content -LiteralPath $descriptorPath -Raw
+    if ($descriptorText -notmatch [regex]::Escape("Ian Sundahl") -or
+        $descriptorText -notmatch [regex]::Escape("Volley Studios")) {
+        $errors.Add("Plug-in metadata does not identify Ian Sundahl and Volley Studios")
+    }
 }
 
 $llamaRuntime = "Binaries/ThirdParty/LlamaCpp/Win64"
@@ -70,6 +98,17 @@ $forbiddenFiles = Get-ChildItem -LiteralPath $plugin -File -Recurse -Force |
     }
 foreach ($file in $forbiddenFiles) {
     $errors.Add("Generated/model/test artifact present: $($file.FullName.Substring($plugin.Length + 1))")
+}
+
+foreach ($requiredDoc in @(
+    "Docs/UserGuide.md",
+    "Docs/Packaging.md",
+    "Docs/StarterModels.md",
+    "Docs/VisionDevelopment.md",
+    "Docs/TextToSpeech.md",
+    "Docs/SpeechToText.md"
+)) {
+    Require-File $requiredDoc
 }
 
 $restrictedVoiceFiles = Get-ChildItem -LiteralPath $plugin -File -Recurse -Force |

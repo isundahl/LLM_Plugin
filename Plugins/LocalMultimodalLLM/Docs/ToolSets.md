@@ -1,5 +1,7 @@
 # Safe embodied-character tool sets
 
+Copyright 2026 Ian Sundahl, Volley Studios. Licensed under Apache 2.0.
+
 ## Starter kit
 
 `DA_ExampleLocalLLMToolSet` deliberately grants only three reversible, low-impact requests:

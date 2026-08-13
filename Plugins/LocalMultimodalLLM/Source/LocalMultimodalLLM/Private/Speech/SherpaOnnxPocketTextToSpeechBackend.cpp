@@ -3,6 +3,7 @@
 
 #if LOCAL_MULTIMODAL_LLM_WITH_SHERPA
 
+#include "HAL/PlatformProcess.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformMisc.h"
 #include "Interfaces/IPluginManager.h"
@@ -24,9 +25,10 @@ FString ResolveConfiguredPath(const FString& ConfiguredPath)
             FPaths::Combine(Plugin->GetBaseDir(), ConfiguredPath.RightChop(PluginPrefix.Len())));
     }
 
-    return FPaths::ConvertRelativePathToFull(FPaths::IsRelative(ConfiguredPath)
-        ? FPaths::Combine(FPaths::ProjectDir(), ConfiguredPath)
-        : ConfiguredPath);
+    if (!FPaths::IsRelative(ConfiguredPath)) return FPaths::ConvertRelativePathToFull(ConfiguredPath);
+    const FString ProjectRoot = FPaths::ConvertRelativePathToFull(
+        FPlatformProcess::BaseDir(), FPaths::ProjectDir());
+    return FPaths::Combine(ProjectRoot, ConfiguredPath);
 }
 
 bool ResolveRequiredFile(const FString& Directory, const TCHAR* Name, FString& OutPath)

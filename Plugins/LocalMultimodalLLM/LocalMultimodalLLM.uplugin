@@ -3,9 +3,13 @@
   "Version": 1,
   "VersionName": "0.1.0",
   "FriendlyName": "Local Multimodal LLM",
-  "Description": "Model-agnostic local text and audio inference for Unreal Engine.",
+  "Description": "Private, offline character dialogue with local LLM, speech, memory, routing, and constrained Unreal actions.",
   "Category": "AI",
-  "CreatedBy": "Ian",
+  "CreatedBy": "Ian Sundahl / Volley Studios",
+  "CreatedByURL": "https://github.com/isundahl/LLM_Plugin",
+  "DocsURL": "https://github.com/isundahl/LLM_Plugin/tree/main/Plugins/LocalMultimodalLLM/Docs",
+  "SupportURL": "https://github.com/isundahl/LLM_Plugin/issues",
+  "MarketplaceURL": "",
   "CanContainContent": true,
   "IsBetaVersion": true,
   "Plugins": [
@@ -18,7 +22,10 @@
     {
       "Name": "LocalMultimodalLLM",
       "Type": "Runtime",
-      "LoadingPhase": "Default"
+      "LoadingPhase": "Default",
+      "PlatformAllowList": [
+        "Win64"
+      ]
     }
   ]
 }

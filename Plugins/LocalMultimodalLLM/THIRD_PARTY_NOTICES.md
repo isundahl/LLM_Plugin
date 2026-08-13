@@ -1,5 +1,9 @@
 # Third-party notices
 
+Local Multimodal LLM is copyright 2026 Ian Sundahl, Volley Studios, and is
+licensed under Apache License 2.0. This inventory covers separately licensed
+components and does not replace the plug-in's `LICENSE` and `NOTICE` files.
+
 Local Multimodal LLM interoperates with third-party software and externally
 provided model assets. This file is an inventory, not legal advice.
 
@@ -41,13 +45,15 @@ licenses and voice/data consent requirements must be reviewed independently.
 
 ### Bundled Pocket reference voices
 
-`Content/Voices/pocket-caro-davy.wav` and
-`Content/Voices/pocket-bill-boerst.wav` come from the Voice-Zero selection in
+`Content/Voices/pocket-caro-davy.wav`,
+`Content/Voices/pocket-bill-boerst.wav`,
+`Content/Voices/pocket-peter-yearsley.wav`, and
+`Content/Voices/pocket-stuart-bell.wav` come from the Voice-Zero selection in
 Kyutai's `tts-voices` repository. Kyutai declares the Voice-Zero recordings
 CC0. Attribution is not required, but this notice preserves provenance:
 
 - https://huggingface.co/kyutai/tts-voices
-- https://huggingface.co/kyutai/tts-voices/tree/main/voice-zero
+- https://huggingface.co/kyutai/tts-voices/tree/323332d33f997de8394f24a193e1a76df720e01a/voice-zero
 
 EARS and Expresso recordings are CC BY-NC 4.0 and are not bundled.
 
@@ -60,5 +66,6 @@ revenue. Such users require a separate license from Neuphonic. Include the
 license and NOTICE material, retain applicable attribution, and identify
 modified files.
 
-Before public distribution, retain all notices required by the selected runtime
-profile and add a license governing the plug-in's own source and binaries.
+Public distributions must retain all notices required by the selected runtime
+profile, the plug-in's Apache 2.0 `LICENSE` and `NOTICE`, and the applicable
+model and voice licenses.

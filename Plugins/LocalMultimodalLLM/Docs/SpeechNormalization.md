@@ -1,5 +1,7 @@
 # Speech vocabulary and transcript normalization
 
+Copyright 2026 Ian Sundahl, Volley Studios. Licensed under Apache 2.0.
+
 General ASR accuracy does not solve rare in-world names. A small error such as `Mara` becoming `more a` can break addressee routing and then persist in conversation memory, where the LLM may treat the odd phrase as meaningful. Speech input therefore needs a normalization boundary before routing, history, relationship evidence, or tool parsing.
 
 ## Required representation
@@ -113,7 +115,11 @@ Submitted: "I want to buy a turnip."
 
 The normalizer does not need to rewrite `More a` into `Mara` inside dialogue because the addressee is already carried as structured session metadata.
 
-For v1.1, non-address proper nouns inside the body may be corrected only from an exact canonical phrase or exact project-authored ASR variant, matched as a complete word/phrase span while that vocabulary entry is active. For example, an authored variant of `Minas Tirith` may map to the canonical location, but a generic fuzzy resemblance may not rewrite arbitrary sentence content.
+Non-address proper nouns inside the body may be corrected only from an exact
+canonical phrase or exact project-authored ASR variant, matched as a complete
+word/phrase span while that vocabulary entry is active. For example, an
+authored variant of `Minas Tirith` may map to the canonical location, but a
+generic fuzzy resemblance may not rewrite arbitrary sentence content.
 
 Fuzzy body-phrase correction should remain disabled by default. If added later, it requires a higher threshold than vocative routing, a unique active candidate, no collision with common language, and either provider confidence or player confirmation. It must be independently testable and configurable per vocabulary entry.
 

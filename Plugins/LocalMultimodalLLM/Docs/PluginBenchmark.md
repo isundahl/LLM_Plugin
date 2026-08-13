@@ -1,5 +1,7 @@
 # Local Multimodal LLM plugin benchmark
 
+Copyright 2026 Ian Sundahl, Volley Studios. Licensed under Apache 2.0.
+
 `LocalMultimodalLLM.Benchmark.PluginV1` is a model-backed Unreal automation benchmark for the complete local character pipeline. It loads the configured model once and runs ten isolated sessions from `Examples/Benchmarks/plugin-benchmark-v1.json`.
 
 The baseline matrix contains three deliberately different characters:

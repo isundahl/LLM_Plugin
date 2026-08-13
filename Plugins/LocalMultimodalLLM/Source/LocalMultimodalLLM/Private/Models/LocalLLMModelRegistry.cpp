@@ -2,6 +2,7 @@
 
 #include "Dom/JsonObject.h"
 #include "HAL/FileManager.h"
+#include "HAL/PlatformProcess.h"
 #include "LocalLLMSettings.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
@@ -39,8 +40,16 @@ FString ResolveArtifact(const FString& ManifestDirectory, const FString& Value)
 void AddSearchRoot(TArray<FString>& Roots, FString Root)
 {
     if (Root.IsEmpty()) return;
-    if (FPaths::IsRelative(Root)) Root = FPaths::Combine(FPaths::ProjectDir(), Root);
-    Root = FPaths::ConvertRelativePathToFull(Root);
+    if (FPaths::IsRelative(Root))
+    {
+        const FString ProjectRoot = FPaths::ConvertRelativePathToFull(
+            FPlatformProcess::BaseDir(), FPaths::ProjectDir());
+        Root = FPaths::Combine(ProjectRoot, Root);
+    }
+    else
+    {
+        Root = FPaths::ConvertRelativePathToFull(Root);
+    }
     FPaths::NormalizeDirectoryName(Root);
     Roots.AddUnique(Root);
 }
@@ -49,8 +58,12 @@ void AddSearchRoot(TArray<FString>& Roots, FString Root)
 TArray<FLocalLLMModelInfo> FLocalLLMModelRegistry::Discover()
 {
     TArray<FString> Roots;
-    AddSearchRoot(Roots, FPaths::Combine(FPaths::ProjectDir(), TEXT("Models")));
-    AddSearchRoot(Roots, FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("LocalMultimodalLLM"), TEXT("Models")));
+    // AddSearchRoot resolves relative paths against ProjectDir. Passing
+    // FPaths::ProjectDir() here as well can prepend the project twice because
+    // Unreal commonly represents it as a relative engine path in commandlets
+    // and packaged builds.
+    AddSearchRoot(Roots, TEXT("Models"));
+    AddSearchRoot(Roots, FPaths::Combine(TEXT("Saved"), TEXT("LocalMultimodalLLM"), TEXT("Models")));
     for (const FDirectoryPath& Directory : GetDefault<ULocalLLMSettings>()->AdditionalModelDirectories)
     {
         AddSearchRoot(Roots, Directory.Path);
@@ -195,6 +208,8 @@ bool FLocalLLMModelRegistry::LoadManifest(const FString& ManifestPath, FLocalLLM
     OutInfo.Config.Load.BatchSize = ReadInt(Load, TEXT("batchSize"), OutInfo.Config.Load.BatchSize);
     OutInfo.Config.Load.MicroBatchSize = ReadInt(Load, TEXT("microBatchSize"), OutInfo.Config.Load.MicroBatchSize);
     OutInfo.Config.Load.GpuLayers = ReadInt(Load, TEXT("gpuLayers"), OutInfo.Config.Load.GpuLayers);
+    OutInfo.Config.Load.bAllowGpuLoadFallback = ReadBool(
+        Load, TEXT("allowGpuLoadFallback"), OutInfo.Config.Load.bAllowGpuLoadFallback);
     OutInfo.Config.Load.MainGpu = ReadInt(Load, TEXT("mainGpu"), OutInfo.Config.Load.MainGpu);
     OutInfo.Config.Load.Threads = ReadInt(Load, TEXT("threads"), OutInfo.Config.Load.Threads);
     OutInfo.Config.Load.BatchThreads = ReadInt(Load, TEXT("batchThreads"), OutInfo.Config.Load.BatchThreads);
@@ -258,9 +273,9 @@ bool FLocalLLMModelRegistry::LoadManifest(const FString& ManifestPath, FLocalLLM
     else if (!OutInfo.Config.MultimodalProjectorPath.IsEmpty() && !FPaths::FileExists(OutInfo.Config.MultimodalProjectorPath))
         Warnings.Add(TEXT("optional multimodal projector file is missing; text remains available"));
     if (OutInfo.Config.Capabilities.bSpeculativeDecoding && OutInfo.Config.DraftModelPath.IsEmpty())
-        Errors.Add(TEXT("speculative decoding requires files.draftModel"));
+        Warnings.Add(TEXT("optional draft model is not configured; base-model generation remains available"));
     else if (!OutInfo.Config.DraftModelPath.IsEmpty() && !FPaths::FileExists(OutInfo.Config.DraftModelPath))
-        Errors.Add(TEXT("draft model file is missing"));
+        Warnings.Add(TEXT("optional draft model file is missing; base-model generation remains available"));
     if (OutInfo.Config.Capabilities.bReasoning &&
         OutInfo.Config.Generation.ReasoningMode == ELocalLLMReasoningMode::Disabled &&
         OutInfo.Config.NoThinkAssistantPrefill.IsEmpty())

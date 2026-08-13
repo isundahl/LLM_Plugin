@@ -5,6 +5,7 @@
 #include "Engine/World.h"
 #include "LocalLLMCharacterSheet.h"
 #include "LocalLLMSubsystem.h"
+#include "Policies/CondensedJsonPrintPolicy.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
 

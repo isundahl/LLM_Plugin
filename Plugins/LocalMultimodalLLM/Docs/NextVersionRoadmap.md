@@ -1,5 +1,7 @@
 # Post-v1 expansion and refinement roadmap
 
+Copyright 2026 Ian Sundahl, Volley Studios. Licensed under Apache 2.0.
+
 This roadmap deliberately prioritizes reliability and a small core over accumulating providers and features. Complete the release gate before adding broad new capability.
 
 ## Release gate: prove v1 outside the development project
@@ -175,7 +177,11 @@ Do not enable MTP merely because a sidecar is present; require measurable wins a
 - Provenance IDs so generated answers can be traced during debugging.
 - Never let the model write directly into authoritative retrieval storage.
 
-### Multimodal refinement
+### Multimodal production refinement
+
+The current development API can already submit RGB images through a compatible
+libmtmd projector. These items promote that optional path toward a polished,
+tested Starter experience rather than introducing image submission from zero.
 
 - Blueprint-friendly texture/render-target conversion instead of raw RGB-only input.
 - Projector lifetime controls and memory diagnostics.

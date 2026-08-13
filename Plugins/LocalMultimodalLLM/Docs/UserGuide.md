@@ -1,15 +1,19 @@
 # Local Multimodal LLM v1 user guide
 
+Local Multimodal LLM is copyright 2026 Ian Sundahl, Volley Studios, and is
+licensed under Apache License 2.0. See the plug-in `LICENSE` and `NOTICE` files.
+
 This guide covers the plugin as a reusable Unreal Engine system. The normal
-Starter Bundle path is one default local LLM, one character session,
+Starter download path is one default local LLM, one character session,
 push-to-talk STT, streamed subtitles, and TTS playback. Custom models, multiple
-characters, tools, vision, relationship evaluation, and advanced routing build
+characters, tools, relationship evaluation, and advanced routing build
 on that working speech chain.
 
 The complete release is intended to supply preconfigured starter models. Large
-weights are not stored in Git history, so a source checkout by itself is not the
-Full Starter Bundle. The separately assembled bundle includes the tested Gemma
-4 E2B, Parakeet, and Pocket assets at their preconfigured project paths.
+weights are not stored in Git history, so a source checkout by itself is not a
+Starter download. The separately assembled Starter Core and Starter NVIDIA
+archives include the tested Gemma 4 E2B, Parakeet, and Pocket assets at their
+preconfigured project paths.
 Developers only need **Use a custom model** when building directly from source
 or replacing those defaults. See [Starter Models](StarterModels.md).
 
@@ -20,7 +24,6 @@ Available now:
 - one locally loaded llama.cpp model serving multiple isolated character sessions;
 - character sheets, shared world context, conversation history, and automatic compaction;
 - streamed or guarded text responses;
-- optional image/native-audio input through libmtmd projectors;
 - optional Parakeet speech-to-text through the included Win64 sherpa-onnx provider;
 - microphone capture, VAD, noise calibration, partial captions, and optional speaker verification;
 - typed, allow-listed Unreal tool requests with explicit game-owned execution;
@@ -35,22 +38,29 @@ Important boundaries:
 - Only one primary LLM is loaded at a time. Its worker serializes inference requests, while each character keeps independent state.
 - Consecutive turns reuse the common evaluated prompt prefix. Switching characters lazily saves the outgoing llama sequence state to system RAM and restores the incoming character's state.
 - Native Pocket TTS is available through the packaged sherpa-onnx runtime. The
-  Full Starter Bundle supplies the approved Pocket model and two CC0 starter
+  Starter downloads supply the approved Pocket model and four CC0 starter
   reference voices; a source-only checkout requires the model separately.
 - NeuTTS-2E and Chatterbox use persistent Python sidecars for
   Editor/Development evaluation. They are intentionally unavailable in
   Shipping builds; NeuTTS-2E is CPU-based with four fixed speakers, while
   Chatterbox is a heavier CUDA/reference-cloning option.
-- MTP sidecars are discovered, but speculative decoding is not active in the current binary package because llama.cpp's application-layer `llama-common` speculative runtime is not linked.
-- Vision and native model audio require a compatible projector and are optional.
-- The current native third-party package is Win64-oriented. Treat other platforms and packaged-game distribution as unverified until tested.
+- MTP/speculative decoding is deferred from the v1 Starter profile. Custom
+  manifests may describe a draft sidecar for future compatibility, but the
+  current runtime does not execute speculative generation.
+- The v1 Starter profile uses Parakeet for speech input. Vision is available as
+  a development feature through `Submit Image For Session` and libmtmd, but it
+  requires a custom vision-capable manifest and matching projector. The
+  default Gemma Starter manifest disables projector loading.
+- The current native third-party package and module descriptor target Win64.
+  The Starter downloads' approved model files are staged as loose NonUFS runtime
+  dependencies; a clean-machine packaged Shipping test remains a release gate.
 - LLM dialogue and relationship judgments are probabilistic. Unreal must remain authoritative for gameplay state.
 
 ## 2. Enable and configure the plugin
 
 For this project, the plugin is already enabled. In another project:
 
-1. Install the complete Starter Bundle into the project root, or copy
+1. Install Starter Core or Starter NVIDIA into the project root, or copy
    `LocalMultimodalLLM` into `<Project>/Plugins/` when developing from source.
 2. Enable **Local Multimodal LLM** and its **Audio Capture** dependency under **Edit > Plugins**.
 3. Restart the editor and rebuild the project when prompted.
@@ -66,7 +76,7 @@ the plugin does not inject Qwen/MiniCPM control text into unrelated models.
 
 ### Use a custom model
 
-Skip this subsection when using a complete Starter Bundle. Model discovery
+Skip this subsection when using a Starter download. Model discovery
 searches:
 
 - `<Project>/Models`
@@ -75,7 +85,9 @@ searches:
 
 Each model needs a `*.localllm.json` manifest whose artifact paths resolve correctly. `Get Available Models` returns discovered models, compatibility, status, capabilities, and resolved configuration. Do not attempt to load an entry whose `bCompatible` value is false.
 
-For the first test, use a text-capable manifest and disable or leave the projector lazy. This proves the smallest path before allocating projector memory.
+For the first test, use a text-capable manifest. The v1 default disables
+projector loading entirely. Advanced projects can enable the existing image
+node using the setup in [Development Vision](VisionDevelopment.md).
 
 ## 3. Create content assets
 
@@ -156,10 +168,9 @@ Choose **Local LLM World Sheet**. Use it for shared authoritative context:
 Do not duplicate the entire world sheet in every character backstory. Update the shared sheet or call `Set Shared World Context` when gameplay state changes.
 
 Put shared, publicly observable facts in `CanonicalFacts`; reserve character
-`KnownFacts` for private or character-specific knowledge. A vision result is
-additional perception input, not permission to invent the rest of the scene:
-the grounding contract still prohibits off-frame assumptions and gives
-game-authored facts precedence when they conflict with a fallible observation.
+`KnownFacts` for private or character-specific knowledge. A future perception
+result would remain fallible and would not grant permission to invent unseen
+details; game-authored facts would continue to take precedence.
 The generated grounding contract preserves actor/target, giver/recipient,
 ownership, authority/subject, and cause/effect direction and does not grant
 unspecified lookup or perception capabilities. Ordinary projects can use
@@ -256,8 +267,8 @@ comparisons do not depend on stale values serialized in the map:
 
 - **Distributable Gemma Pocket** is the default. It selects
   `gemma-4-e2b-it-qat`, native `pocket-tts`, the CC0 Caro Davy reference for
-  Ada, and the CC0 Bill Boerst reference for Taro. This is the Full Starter
-  Bundle configuration and the appropriate opening showcase.
+  Ada, and the CC0 Bill Boerst reference for Taro. This is the Starter
+  download configuration and the appropriate opening showcase.
 - **Qwen NeuTTS Development** selects `qwen-3.5-4b-iq3`, the development
   `neutts-2e` sidecar, Emily for Ada, and Paul for Taro. Use it only as a
   clearly labeled optional backend comparison: NeuTTS is not registered in
@@ -324,9 +335,11 @@ For each character actor:
 
 Multiple visible characters still share the one loaded model. Queue simultaneous conversations in gameplay code rather than assuming parallel inference.
 
-V1 requires the caller to choose the target `SessionId`. Automatic name, gaze,
-proximity, loudness, and overhearing behavior is proposed for v1.1 in
-[ConversationRouting.md](ConversationRouting.md).
+The reusable plugin API accepts an explicit `SessionId`, which remains the
+deterministic fallback. The project demo includes a higher-level facing-,
+conversation-, and proximity-based selector plus hearing-tier events. That
+coordinator is project sample code rather than a required plugin dependency;
+see [ConversationRouting.md](ConversationRouting.md).
 
 ## 7. Add constrained actions
 
@@ -393,12 +406,11 @@ Speaker enrollment and verification are optional. Do not enable rejection until 
 - `Provider = chatterbox-turbo` runs the prepared development CUDA sidecar and
   requires a stable voice ID plus a consented reference WAV.
 
-For a ready commercial-safe Pocket reference, select either
-`pocket-caro-davy` with
-`Plugin:/Content/Voices/pocket-caro-davy.wav` or `pocket-bill-boerst` with
-`Plugin:/Content/Voices/pocket-bill-boerst.wav`. Both are CC0 Voice-Zero
-recordings staged with the plugin. EARS voices are non-commercial benchmark
-material and must not be shipped.
+For a commercially reusable CC0 Pocket reference, select `pocket-caro-davy`,
+`pocket-bill-boerst`, `pocket-peter-yearsley`, or `pocket-stuart-bell`. Their
+plugin-relative paths follow `Plugin:/Content/Voices/<voice-id>.wav`. All four
+are CC0 Voice-Zero recordings staged with the plugin. EARS voices are
+non-commercial benchmark material and must not be shipped.
 
 Leave `bAutoPlayAudio` enabled, assign a 3D attenuation asset when appropriate, and call `Synthesize Speech` after a completed character response. Bind `OnTextToSpeechEvent` for subtitles or lip sync. For MetaSound processing, assign a mono Audio Bus to `MetaSoundAudioBus` and read it with `Audio Bus Reader (Mono)` in the graph. Do not build final facial animation or voice quality acceptance around the mock tone. See [TextToSpeech.md](TextToSpeech.md).
 
@@ -484,7 +496,15 @@ Before expanding the scene, confirm:
 
 **Replies arrive all at once:** Confirm `ImmersionGuard.bStreamValidatedSentences` is enabled. Tool-call JSON remains buffered, and a response without sentence punctuation is released at completion. Use `DetectOnly` only when unguarded token streaming is acceptable.
 
-**First image/audio request stalls:** A lazy projector loads on first multimodal use. Preload it only when that startup cost and memory allocation are acceptable.
+**Image submission reports that multimodal input is disabled:** The Starter
+manifest intentionally disables projector loading. Vision is an available
+development feature, not a Starter feature: use a vision-capable custom
+manifest, install its exactly matching projector, and call `Submit Image For
+Session` with valid RGB pixels. See [Development Vision](VisionDevelopment.md).
+
+**Native model audio submission is unavailable:** The Starter speech path uses
+Parakeet STT. Native projector audio remains outside the supported Starter
+workflow even when a particular development projector advertises audio.
 
 **Microphone captures nothing:** Check Windows microphone permission, selected device, calibration events, and the active dB threshold.
 

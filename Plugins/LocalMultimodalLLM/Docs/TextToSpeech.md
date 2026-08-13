@@ -1,5 +1,7 @@
 # Text-to-speech providers
 
+Copyright 2026 Ian Sundahl, Volley Studios. Licensed under Apache 2.0.
+
 Text-to-speech is exposed through `ULocalLLMTextToSpeechComponent`. The component owns synthesis lifecycle, background execution, cancellation, Blueprint events, and an optional actor-attached playback route; a registered provider owns model loading and PCM generation.
 
 The native `pocket-tts` provider uses the same packaged CPU-only sherpa-onnx
@@ -103,28 +105,29 @@ Pocket's components have separate licenses:
 - Kyutai's Pocket TTS source code is MIT.
 - The upstream Pocket model weights are CC BY 4.0.
 - The tested `sherpa-onnx-pocket-tts-int8-2026-01-26` ONNX bundle includes a
-  CC BY 4.0 license.
+  CC BY 4.0 license file.
 - The sherpa-onnx runtime is Apache 2.0.
 
-These licenses permit commercial use, but their attribution, license-copy, and
-change-notice requirements still apply. The upstream gated model also includes
-an acceptable-use notice, including consent requirements for voice cloning.
+The upstream licenses permit commercial use, but their attribution,
+license-copy, and change-notice requirements still apply. The upstream gated
+model also includes an acceptable-use notice, including consent requirements
+for voice cloning.
 
-The ONNX model card contains an ambiguous sentence saying “It is for
-non-commercial” immediately after identifying its bundled `test_wavs`. That
-statement conflicts with the bundle's actual CC BY 4.0 license and appears to
-describe or mistakenly characterize the example recordings rather than apply a
-CC BY-NC license to the model. The plugin does not rely on or redistribute
-those example WAV files. A release must provide its own properly licensed and
-consented reference audio and preserve the Pocket, CC BY 4.0, sherpa-onnx, and
-ONNX Runtime notices.
+The ONNX model card retains a stale non-commercial sentence beside its bundled
+`test_wavs`. The February 10 bundle ships CC BY 4.0 after the ONNX
+exporter's verified January 28 relicensing commit explicitly removed every
+NonCommercial clause. Kyutai's current model terms are also CC BY 4.0. The
+evidence trail is preserved in `ModelLicenses/PocketTTS/NOTICE.md`; the plugin
+does not redistribute the separately sourced example WAV files.
 
-The plugin includes two small CC0 Pocket reference voices:
+The plugin includes four small CC0 Pocket reference voices:
 
 | Voice ID | `SpeakerReferencePath` | Presentation |
 | --- | --- | --- |
 | `pocket-caro-davy` | `Plugin:/Content/Voices/pocket-caro-davy.wav` | Female |
 | `pocket-bill-boerst` | `Plugin:/Content/Voices/pocket-bill-boerst.wav` | Male |
+| `pocket-peter-yearsley` | `Plugin:/Content/Voices/pocket-peter-yearsley.wav` | Male |
+| `pocket-stuart-bell` | `Plugin:/Content/Voices/pocket-stuart-bell.wav` | Male |
 
 They originate from Kyutai's Voice-Zero selection. `Plugin:/` resolves against
 the installed `LocalMultimodalLLM` plugin directory in both project-plugin and
@@ -134,7 +137,7 @@ CC0 does not require attribution, but source provenance is retained in
 
 EARS and Expresso recordings are CC BY-NC 4.0 and must remain
 development/benchmark material. They cannot be included in a commercial game,
-plugin, Starter Bundle, trailer asset pack, or commercial voice preset without
+plugin, Starter download, trailer asset pack, or commercial voice preset without
 separate permission.
 
 ## NeuTTS Nano qualification candidate

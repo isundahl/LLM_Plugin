@@ -1,5 +1,7 @@
 # Optional speech-to-text backends
 
+Copyright 2026 Ian Sundahl, Volley Studios. Licensed under Apache 2.0.
+
 Audio submission uses `AudioInputStrategy`:
 
 - `Auto` uses native libmtmd audio when the loaded LLM supports it, otherwise it uses the configured speech-to-text provider.

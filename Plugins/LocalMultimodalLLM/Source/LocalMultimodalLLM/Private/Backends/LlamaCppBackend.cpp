@@ -1,12 +1,17 @@
+// Copyright 2026 Ian Sundahl, Volley Studios. SPDX-License-Identifier: Apache-2.0
 #include "Backends/ILocalMultimodalBackend.h"
 
 #if LOCAL_MULTIMODAL_LLM_WITH_LLAMA
 
 #include "HAL/PlatformMisc.h"
+#include "Misc/ScopeLock.h"
 #include "Dom/JsonObject.h"
 #include "Interfaces/IPluginManager.h"
 #include "LocalMultimodalLLMModule.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "Misc/Paths.h"
+#include "Policies/CondensedJsonPrintPolicy.h"
 #include "Safety/LocalLLMTextGuard.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
@@ -89,11 +94,87 @@ FLocalLLMEvent MakeEvent(const ELocalLLMEventType Type, const FGuid& RequestId, 
     return Event;
 }
 
-void LlamaLogCallback(const ggml_log_level Level, const char* Text, void*)
+struct FLlamaRuntimeLogState
+{
+    void Reset()
+    {
+        FScopeLock Lock(&Mutex);
+        SelectedDevice.Reset();
+        OffloadedLayers = 0;
+        TotalLayers = 0;
+        EmittedWarnings.Reset();
+    }
+
+    void Observe(const FString& Message)
+    {
+        FScopeLock Lock(&Mutex);
+        const FString DevicePrefix = TEXT("llama_prepare_model_devices: using device ");
+        const int32 DeviceStart = Message.Find(DevicePrefix);
+        if (DeviceStart != INDEX_NONE)
+        {
+            const FString DeviceText = Message.Mid(DeviceStart + DevicePrefix.Len());
+            int32 DescriptionStart = INDEX_NONE;
+            SelectedDevice = DeviceText.FindChar(TEXT('('), DescriptionStart)
+                ? DeviceText.Left(DescriptionStart).TrimStartAndEnd()
+                : DeviceText.TrimStartAndEnd();
+        }
+
+        int32 ParsedOffloaded = 0;
+        int32 ParsedTotal = 0;
+        const FString OffloadPrefix = TEXT("load_tensors: offloaded ");
+        const int32 OffloadStart = Message.Find(OffloadPrefix);
+        FString OffloadedText;
+        FString TotalAndSuffix;
+        if (OffloadStart != INDEX_NONE &&
+            Message.Mid(OffloadStart + OffloadPrefix.Len()).Split(
+                TEXT("/"), &OffloadedText, &TotalAndSuffix))
+        {
+            FString TotalText;
+            FString IgnoredSuffix;
+            if (TotalAndSuffix.Split(TEXT(" "), &TotalText, &IgnoredSuffix))
+            {
+                ParsedOffloaded = FCString::Atoi(*OffloadedText);
+                ParsedTotal = FCString::Atoi(*TotalText);
+                if (ParsedTotal > 0)
+                {
+                    OffloadedLayers = ParsedOffloaded;
+                    TotalLayers = ParsedTotal;
+                }
+            }
+        }
+    }
+
+    bool ShouldEmitWarning(const FString& Message)
+    {
+        FScopeLock Lock(&Mutex);
+        if (EmittedWarnings.Contains(Message)) return false;
+        EmittedWarnings.Add(Message);
+        return true;
+    }
+
+    void Snapshot(FString& OutDevice, int32& OutOffloadedLayers, int32& OutTotalLayers) const
+    {
+        FScopeLock Lock(&Mutex);
+        OutDevice = SelectedDevice;
+        OutOffloadedLayers = OffloadedLayers;
+        OutTotalLayers = TotalLayers;
+    }
+
+private:
+    mutable FCriticalSection Mutex;
+    FString SelectedDevice;
+    int32 OffloadedLayers = 0;
+    int32 TotalLayers = 0;
+    TSet<FString> EmittedWarnings;
+};
+
+void LlamaLogCallback(const ggml_log_level Level, const char* Text, void* UserData)
 {
     FString Message = UTF8_TO_TCHAR(Text ? Text : "");
     Message.TrimEndInline();
     if (Message.IsEmpty()) return;
+    FLlamaRuntimeLogState* RuntimeLogState = static_cast<FLlamaRuntimeLogState*>(UserData);
+    if (RuntimeLogState) RuntimeLogState->Observe(Message);
     if (Level == GGML_LOG_LEVEL_ERROR)
     {
         UE_LOG(LogLocalMultimodalLLM, Error, TEXT("llama.cpp: %s"), *Message);
@@ -106,6 +187,10 @@ void LlamaLogCallback(const ggml_log_level Level, const char* Text, void*)
             Message.Contains(TEXT("using full-size SWA cache")) ||
             Message.Contains(TEXT("audio input is in experimental stage"));
         if (bKnownNotice)
+        {
+            UE_LOG(LogLocalMultimodalLLM, Verbose, TEXT("llama.cpp: %s"), *Message);
+        }
+        else if (RuntimeLogState && !RuntimeLogState->ShouldEmitWarning(Message))
         {
             UE_LOG(LogLocalMultimodalLLM, Verbose, TEXT("llama.cpp: %s"), *Message);
         }
@@ -191,8 +276,8 @@ public:
     FLlamaCppBackend(FLocalLLMEventSink&& InEventSink, FLocalLLMCancelCheck&& InCancelCheck)
         : EventSink(MoveTemp(InEventSink)), CancelCheck(MoveTemp(InCancelCheck))
     {
-        llama_log_set(LlamaLogCallback, nullptr);
-        mtmd_helper_log_set(LlamaLogCallback, nullptr);
+        llama_log_set(LlamaLogCallback, &RuntimeLogState);
+        mtmd_helper_log_set(LlamaLogCallback, &RuntimeLogState);
         llama_backend_init();
         if (const TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(TEXT("LocalMultimodalLLM")))
         {
@@ -213,6 +298,7 @@ public:
     {
         ReleaseModel();
         Config = InConfig;
+        RuntimeLogState.Reset();
         if (!FPaths::FileExists(Config.ModelPath))
         {
             Error(RequestId, FString::Printf(TEXT("Model file does not exist: %s"), *Config.ModelPath));
@@ -221,16 +307,116 @@ public:
 
         llama_model_params ModelParams = llama_model_default_params();
         ModelParams.n_gpu_layers = Config.Load.GpuLayers;
+        bool bExplicitCpuSelection = Config.Load.GpuLayers == 0;
+#if !UE_BUILD_SHIPPING
+        DiagnosticDevices.clear();
+        FString DiagnosticBackend;
+        if (FParse::Value(FCommandLine::Get(), TEXT("LocalLLMDiagnosticBackend="), DiagnosticBackend))
+        {
+            DiagnosticBackend.TrimStartAndEndInline();
+            DiagnosticBackend.ToLowerInline();
+            ggml_backend_dev_t SelectedDevice = nullptr;
+            for (size_t DeviceIndex = 0; DeviceIndex < ggml_backend_dev_count(); ++DeviceIndex)
+            {
+                ggml_backend_dev_t Candidate = ggml_backend_dev_get(DeviceIndex);
+                const FString DeviceName = UTF8_TO_TCHAR(ggml_backend_dev_name(Candidate));
+                const FString Description = UTF8_TO_TCHAR(ggml_backend_dev_description(Candidate));
+                const ggml_backend_reg_t Registry = ggml_backend_dev_backend_reg(Candidate);
+                const FString RegistryName = Registry ? UTF8_TO_TCHAR(ggml_backend_reg_name(Registry)) : FString();
+                const FString Searchable = (DeviceName + TEXT(" ") + Description + TEXT(" ") + RegistryName).ToLower();
+                const bool bMatchesCpu = DiagnosticBackend == TEXT("cpu") &&
+                    ggml_backend_dev_type(Candidate) == GGML_BACKEND_DEVICE_TYPE_CPU;
+                const bool bMatchesNamedGpu = DiagnosticBackend != TEXT("cpu") &&
+                    Searchable.Contains(DiagnosticBackend);
+                if (bMatchesCpu || bMatchesNamedGpu)
+                {
+                    SelectedDevice = Candidate;
+                    DiagnosticSelectedDevice = FString::Printf(TEXT("%s [%s]"), *DeviceName, *RegistryName);
+                    break;
+                }
+            }
+            if (!SelectedDevice)
+            {
+                Error(RequestId, FString::Printf(
+                    TEXT("Diagnostic backend '%s' is unavailable. Discovered devices: %s"),
+                    *DiagnosticBackend, *DescribeBackendDevices()));
+                return;
+            }
+            DiagnosticDevices.push_back(SelectedDevice);
+            DiagnosticDevices.push_back(nullptr);
+            ModelParams.devices = DiagnosticDevices.data();
+            if (DiagnosticBackend == TEXT("cpu"))
+            {
+                ModelParams.n_gpu_layers = 0;
+                bExplicitCpuSelection = true;
+            }
+            UE_LOG(LogLocalMultimodalLLM, Display,
+                TEXT("Diagnostic backend override '%s' selected %s (gpu layers=%d)"),
+                *DiagnosticBackend, *DiagnosticSelectedDevice, ModelParams.n_gpu_layers);
+        }
+        else
+        {
+            DiagnosticSelectedDevice.Reset();
+        }
+#endif
         ModelParams.main_gpu = Config.Load.MainGpu;
         ModelParams.use_mmap = Config.Load.bUseMemoryMap;
         ModelParams.use_mlock = Config.Load.bLockMemory;
         ModelParams.check_tensors = Config.Load.bCheckTensors;
 
         const std::string ModelPath = ToUtf8(Config.ModelPath);
-        Model = llama_model_load_from_file(ModelPath.c_str(), ModelParams);
+        const int32 RequestedGpuLayers = ModelParams.n_gpu_layers;
+        FString LoadFallbackStatus;
+#if !UE_BUILD_SHIPPING
+        int32 DiagnosticGpuFailuresRemaining = 0;
+        FParse::Value(FCommandLine::Get(), TEXT("LocalLLMDiagnosticGpuLoadFailures="),
+            DiagnosticGpuFailuresRemaining);
+        DiagnosticGpuFailuresRemaining = FMath::Max(0, DiagnosticGpuFailuresRemaining);
+#endif
+        auto AttemptModelLoad = [&](const int32 GpuLayers) -> bool
+        {
+            RuntimeLogState.Reset();
+            ModelParams.n_gpu_layers = GpuLayers;
+#if !UE_BUILD_SHIPPING
+            if (GpuLayers != 0 && DiagnosticGpuFailuresRemaining > 0)
+            {
+                --DiagnosticGpuFailuresRemaining;
+                UE_LOG(LogLocalMultimodalLLM, Display,
+                    TEXT("Diagnostic: simulating GPU model allocation failure (%d remaining)"),
+                    DiagnosticGpuFailuresRemaining);
+                return false;
+            }
+#endif
+            Model = llama_model_load_from_file(ModelPath.c_str(), ModelParams);
+            return Model != nullptr;
+        };
+        auto EmitLoadFallbackWarning = [&](const FString& Message)
+        {
+            UE_LOG(LogLocalMultimodalLLM, Warning, TEXT("%s"), *Message);
+            EventSink(MakeEvent(ELocalLLMEventType::Warning, RequestId, Message));
+        };
+
+        AttemptModelLoad(RequestedGpuLayers);
+        if (!Model && !bExplicitCpuSelection && Config.Load.bAllowGpuLoadFallback)
+        {
+            EmitLoadFallbackWarning(FString::Printf(
+                TEXT("GPU-requested model load failed for '%s'; retrying on CPU. ")
+                TEXT("This keeps the game responsive but inference will be substantially slower. ")
+                TEXT("Set allowGpuLoadFallback=false to fail immediately instead."),
+                *Config.DisplayName));
+            if (AttemptModelLoad(0))
+            {
+                LoadFallbackStatus = TEXT("; load-fallback=CPU");
+            }
+        }
         if (!Model)
         {
-            Error(RequestId, FString::Printf(TEXT("llama.cpp failed to load %s"), *Config.ModelPath));
+            Error(RequestId, FString::Printf(
+                TEXT("llama.cpp failed to load %s%s"),
+                *Config.ModelPath,
+                Config.Load.bAllowGpuLoadFallback && !bExplicitCpuSelection
+                    ? TEXT(" after the bounded GPU-to-CPU recovery attempt")
+                    : TEXT("")));
             return;
         }
 
@@ -307,6 +493,35 @@ public:
 
         char Description[256] = {};
         llama_model_desc(Model, Description, UE_ARRAY_COUNT(Description));
+        FString SelectedInferenceDevice;
+        int32 OffloadedLayers = 0;
+        int32 TotalLayers = 0;
+        RuntimeLogState.Snapshot(SelectedInferenceDevice, OffloadedLayers, TotalLayers);
+        const bool bGpuOffloadActive = OffloadedLayers > 0;
+        const bool bGpuOffloadRequested = !bExplicitCpuSelection;
+        const FString InferenceStatus = bGpuOffloadActive
+            ? FString::Printf(TEXT("%s (%d/%d layers on GPU)"),
+                SelectedInferenceDevice.IsEmpty() ? TEXT("GPU") : *SelectedInferenceDevice,
+                OffloadedLayers, TotalLayers)
+            : TEXT("CPU (0 GPU layers)");
+        if (bGpuOffloadActive)
+        {
+            UE_LOG(LogLocalMultimodalLLM, Display, TEXT("Inference backend: %s"), *InferenceStatus);
+        }
+        else if (bGpuOffloadRequested)
+        {
+            const FString CpuFallbackWarning = FString::Printf(
+                TEXT("CPU fallback is active for '%s'; no model layers were offloaded to a GPU. "
+                     "Dialogue latency may be substantially higher. Verify GPU drivers and the staged CUDA/Vulkan backend DLLs."),
+                *Config.DisplayName);
+            UE_LOG(LogLocalMultimodalLLM, Warning, TEXT("%s"), *CpuFallbackWarning);
+            EventSink(MakeEvent(ELocalLLMEventType::Warning, RequestId, CpuFallbackWarning));
+        }
+        else
+        {
+            UE_LOG(LogLocalMultimodalLLM, Display,
+                TEXT("Inference backend: CPU (explicit GpuLayers=0 configuration)"));
+        }
         const FString DraftStatus = Config.DraftModelPath.IsEmpty()
             ? FString()
             : TEXT("; MTP assistant discovered; speculative runtime is not present in this llama.cpp package");
@@ -314,17 +529,26 @@ public:
             ? TEXT("disabled")
             : (Config.Generation.ReasoningMode == ELocalLLMReasoningMode::Enabled ? TEXT("enabled") : TEXT("model-default"));
         EventSink(MakeEvent(ELocalLLMEventType::ModelLoaded, RequestId,
-            FString::Printf(TEXT("Loaded %s [%s], context=%u, projector=%s, vision=%s, audio=%s, reasoning=%s%s%s"),
+            FString::Printf(TEXT("Loaded %s [%s], context=%u, inference=%s, projector=%s, vision=%s, audio=%s, reasoning=%s, devices=%s%s%s%s"),
                 *Config.DisplayName,
                 UTF8_TO_TCHAR(Description),
                 llama_n_ctx(Context),
+                *InferenceStatus,
                 MultimodalContext ? TEXT("loaded") :
                     (Config.Load.ProjectorLoadPolicy == ELocalLLMProjectorLoadPolicy::Disabled ? TEXT("disabled") : TEXT("deferred")),
                 bProjectorVision ? TEXT("yes") : TEXT("no"),
                 bProjectorAudio ? TEXT("yes") : TEXT("no"),
                 ReasoningStatus,
+                *DescribeBackendDevices(),
+#if !UE_BUILD_SHIPPING
+                DiagnosticSelectedDevice.IsEmpty()
+                    ? TEXT("")
+                    : *FString::Printf(TEXT("; diagnostic-selected=%s"), *DiagnosticSelectedDevice),
+#else
+                TEXT(""),
+#endif
                 *DraftStatus,
-                *ContextAdjustment)));
+                *(ContextAdjustment + LoadFallbackStatus))));
     }
 
     virtual void UnloadModel(const FGuid& RequestId) override
@@ -505,7 +729,10 @@ public:
         TArray<llama_token> Tokens;
         if (!Tokenize(FormattedPrompt, Tokens, RequestId) || !CheckContextCapacity(Tokens.Num(), RequestId)) return;
         if (!EvaluateConversationTokens(SessionId, Tokens, RequestId)) return;
-        FinishGeneration(*Session, SessionId, FString(), TEXT("user"), RequestId, false);
+        // A result completes the pending action. Do not let a small model loop by
+        // immediately requesting the same tool again instead of acknowledging it.
+        FinishGeneration(*Session, SessionId, FString(), TEXT("user"), RequestId,
+            false, false, true, false);
     }
 
     virtual void SubmitText(const FGuid& SessionId, const FString& Prompt, const FGuid& RequestId) override
@@ -680,6 +907,20 @@ public:
     }
 
 private:
+    FString DescribeBackendDevices() const
+    {
+        TArray<FString> Devices;
+        for (size_t DeviceIndex = 0; DeviceIndex < ggml_backend_dev_count(); ++DeviceIndex)
+        {
+            const ggml_backend_dev_t Device = ggml_backend_dev_get(DeviceIndex);
+            const ggml_backend_reg_t Registry = ggml_backend_dev_backend_reg(Device);
+            Devices.Add(FString::Printf(TEXT("%s/%s"),
+                UTF8_TO_TCHAR(ggml_backend_dev_name(Device)),
+                Registry ? UTF8_TO_TCHAR(ggml_backend_reg_name(Registry)) : TEXT("unknown")));
+        }
+        return Devices.IsEmpty() ? TEXT("none") : FString::Join(Devices, TEXT(","));
+    }
+
     static void RestoreCheckpoint(FCharacterSessionState& Session, const FConversationRollbackCheckpoint& Checkpoint)
     {
         Session.History = Checkpoint.History;
@@ -2244,7 +2485,8 @@ private:
 
     void FinishGeneration(FCharacterSessionState& Session, const FGuid& SessionId, const FString& UserContent,
         const FString& UserRole, const FGuid& RequestId, const bool bStoreUser = true,
-        const bool bGuardRetry = false, const bool bCanRetry = true)
+        const bool bGuardRetry = false, const bool bCanRetry = true,
+        const bool bAllowToolCalls = true)
     {
         llama_sampler* Sampler = CreateSampler();
         const llama_vocab* Vocab = llama_model_get_vocab(Model);
@@ -2430,7 +2672,47 @@ private:
                 }
             }
         }
-        if (bToolMode && HandleToolCall(Session, SessionId, RequestId, EmittedText,
+        if (bToolMode && !bAllowToolCalls)
+        {
+            FString RepeatedToolJson;
+            TSharedPtr<FJsonObject> RepeatedTool;
+            if (ExtractFirstJsonObject(EmittedText, RepeatedToolJson) &&
+                FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(RepeatedToolJson), RepeatedTool) &&
+                RepeatedTool.IsValid() && RepeatedTool->HasField(TEXT("tool")))
+            {
+                if (!bGuardRetry)
+                {
+                    UE_LOG(LogLocalMultimodalLLM, Warning,
+                        TEXT("Model repeated a tool request after its authoritative result; retrying once as dialogue"));
+                    static const FString Correction = TEXT(
+                        "The requested game action has already completed. Do not request any tool again. "
+                        "Respond with one short, natural, in-character acknowledgement using no JSON.");
+                    const std::string RetryPrompt = FormatConversation(Session, FString(), false,
+                        false, true, Correction);
+                    TArray<llama_token> RetryTokens;
+                    if (!Tokenize(RetryPrompt, RetryTokens, RequestId) ||
+                        !CheckContextCapacity(RetryTokens.Num(), RequestId))
+                    {
+                        AbortConversationTurn(Session);
+                        return;
+                    }
+                    if (!EvaluateConversationTokens(SessionId, RetryTokens, RequestId))
+                    {
+                        AbortConversationTurn(Session);
+                        return;
+                    }
+                    FinishGeneration(Session, SessionId, FString(), TEXT("user"), RequestId,
+                        false, true, false, false);
+                    return;
+                }
+
+                // Always close the turn even if a tiny model ignores the one retry.
+                EmittedText = TEXT("It's done.");
+                UE_LOG(LogLocalMultimodalLLM, Warning,
+                    TEXT("Model repeated a tool request after correction; using a concise completion fallback"));
+            }
+        }
+        if (bToolMode && bAllowToolCalls && HandleToolCall(Session, SessionId, RequestId, EmittedText,
             bStoreUser ? UserContent : FString(), bStoreUser ? UserRole : FString(),
             PresentedText)) return;
         if (!bReachedSpokenSentenceLimit && bStrictImmersion &&
@@ -2543,6 +2825,11 @@ private:
     FLocalLLMEventSink EventSink;
     FLocalLLMCancelCheck CancelCheck;
     FLocalLLMModelConfig Config;
+    FLlamaRuntimeLogState RuntimeLogState;
+#if !UE_BUILD_SHIPPING
+    std::vector<ggml_backend_dev_t> DiagnosticDevices;
+    FString DiagnosticSelectedDevice;
+#endif
     TMap<FGuid, FCharacterSessionState> Sessions;
     FLocalLLMWorldContext SharedWorld;
     TMap<FString, FLocalLLMToolDefinition> Tools;

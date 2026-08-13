@@ -18,8 +18,10 @@ namespace
 {
 FString ResolveNeuPath(FString Path)
 {
-    if (FPaths::IsRelative(Path)) Path = FPaths::Combine(FPaths::ProjectDir(), Path);
-    return FPaths::ConvertRelativePathToFull(Path);
+    if (!FPaths::IsRelative(Path)) return FPaths::ConvertRelativePathToFull(Path);
+    const FString ProjectRoot = FPaths::ConvertRelativePathToFull(
+        FPlatformProcess::BaseDir(), FPaths::ProjectDir());
+    return FPaths::Combine(ProjectRoot, Path);
 }
 
 FString IntegerToEnglishWords(const int64 Value)

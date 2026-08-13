@@ -2,6 +2,7 @@
 
 #include "Async/Async.h"
 #include "Components/AudioComponent.h"
+#include "Engine/World.h"
 #include "GameFramework/Actor.h"
 #include "HAL/CriticalSection.h"
 #include "ILocalTextToSpeechBackend.h"
@@ -10,6 +11,7 @@
 #include "Speech/LocalLLMSpeechTextUtils.h"
 #include "Sound/AudioBus.h"
 #include "Sound/SoundWaveProcedural.h"
+#include "TimerManager.h"
 
 struct ULocalLLMTextToSpeechComponent::FImpl
 {

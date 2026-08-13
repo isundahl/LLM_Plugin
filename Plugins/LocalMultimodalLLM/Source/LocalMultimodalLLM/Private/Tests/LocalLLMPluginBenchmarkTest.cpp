@@ -242,6 +242,13 @@ bool FLocalLLMPluginBenchmarkTest::RunTest(const FString&)
                 if (Event.SessionId != SessionId) continue;
                 if (Event.Type == ELocalLLMEventType::TextDelta) OutText += Event.Text;
                 if (Event.Type == ELocalLLMEventType::TurnCompleted) return true;
+                if (Event.Type == ELocalLLMEventType::ToolCallCompleted)
+                {
+                    AddError(FString::Printf(
+                        TEXT("Unexpected follow-up tool call while waiting for dialogue: %s %s"),
+                        *Event.ToolName, *Event.Text));
+                    return false;
+                }
             }
             FPlatformProcess::Sleep(0.01f);
         }

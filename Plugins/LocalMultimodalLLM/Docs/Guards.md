@@ -1,5 +1,7 @@
 # Jailbreak resistance and immersion guarding
 
+Copyright 2026 Ian Sundahl, Volley Studios. Licensed under Apache 2.0.
+
 The plugin uses two small deterministic layers. Neither layer restricts discussion subjects: a character may discuss AI, recipes, modern technology, or anything else. The distinction is whether player text can gain instruction authority and whether a candidate response exposes assistant/meta presentation.
 
 ## Jailbreak guard

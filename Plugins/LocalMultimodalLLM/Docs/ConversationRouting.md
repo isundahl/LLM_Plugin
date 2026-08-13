@@ -1,13 +1,17 @@
 # Ambient multi-character conversation routing
 
+Copyright 2026 Ian Sundahl, Volley Studios. Licensed under Apache 2.0.
+
 ## Current behavior
 
-The caller currently selects the addressee explicitly:
+The reusable plug-in currently selects the addressee explicitly:
 
 - typed dialogue calls `Submit Text For Session(SessionId, Text)`;
 - microphone capture starts with a target `SessionId` and submits its final utterance there.
 
-The plugin does not infer who the player faces, who can hear, or who should respond. This is predictable for v1 but requires gameplay/UI activation.
+This explicit surface is predictable and portable. The host demo implements a
+working project-level router without making camera or pawn assumptions part of
+the core plug-in API.
 
 The project demo now includes a deliberately narrow bridge toward the full router design. `Start Conversation(CharacterId)` freezes an explicit primary before capture, prewarms that character's TTS voice, and safely switches the microphone session when the explicit target changes. `Find Best Recipient From View` previews a deterministic camera/head score, and `Start Conversation With Best Recipient` freezes that result and starts capture. An optional `AttentionSourceActor` supports VR heads, third-person aim pivots, or project-specific cameras.
 
@@ -26,7 +30,7 @@ Hearing and responding are separate decisions:
 
 Every audible participant therefore “wakes” at the routing/event layer, even when they are only an uninvolved bystander. Passive observation and hearing events must never trigger inference by themselves. The project may subscribe to a tier and choose a reaction, but the plugin does not create response storms or accidental chains of characters talking indefinitely.
 
-## Proposed Unreal surface
+## Candidate reusable Unreal surface
 
 Add `ULocalLLMConversationRouterComponent` to the player controller, pawn, or dialogue coordinator.
 
@@ -181,7 +185,7 @@ This favors STT-first routing even when the primary LLM has native audio input, 
 - Sanitize observations with the existing jailbreak control-token layer.
 - Never start inference merely because a character heard something.
 
-## Recommended delivery order
+## Remaining promotion work
 
 1. Add the observation history role and `Observe Dialogue For Session` with native/mock tests.
 2. Add participant registration, audibility, focus, gaze, proximity, and explicit-name scoring.
@@ -190,4 +194,6 @@ This favors STT-first routing even when the primary LLM has native audio input, 
 5. Integrate microphone transcription and calibrated loudness.
 6. Add occlusion, group address, and project wake predicates only after the core behavior is usable.
 
-This should be a v1.1 feature. The manual `SessionId` APIs remain the deterministic fallback and should not be removed.
+Promoting the proven demo router into a reusable plugin component remains v1.1
+work. The manual `SessionId` APIs remain the deterministic fallback and should
+not be removed.

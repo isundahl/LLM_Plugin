@@ -4,6 +4,7 @@
 #include "ILocalSpeechToTextBackend.h"
 #include "ILocalSpeakerEmbeddingBackend.h"
 #include "LocalLLMSpeechVocabulary.h"
+#include "HAL/Event.h"
 #include "HAL/PlatformProcess.h"
 #include "HAL/RunnableThread.h"
 
