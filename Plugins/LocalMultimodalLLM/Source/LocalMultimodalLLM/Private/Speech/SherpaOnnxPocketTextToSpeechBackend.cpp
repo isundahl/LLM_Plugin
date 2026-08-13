@@ -28,7 +28,21 @@ FString ResolveConfiguredPath(const FString& ConfiguredPath)
     if (!FPaths::IsRelative(ConfiguredPath)) return FPaths::ConvertRelativePathToFull(ConfiguredPath);
     const FString ProjectRoot = FPaths::ConvertRelativePathToFull(
         FPlatformProcess::BaseDir(), FPaths::ProjectDir());
-    return FPaths::Combine(ProjectRoot, ConfiguredPath);
+    const FString ProjectCandidate = FPaths::ConvertRelativePathToFull(FPaths::Combine(ProjectRoot, ConfiguredPath));
+    if (IFileManager::Get().DirectoryExists(*ProjectCandidate) || FPaths::FileExists(ProjectCandidate))
+    {
+        return ProjectCandidate;
+    }
+    if (const TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(TEXT("LocalMultimodalLLM")); Plugin.IsValid())
+    {
+        const FString PluginCandidate = FPaths::ConvertRelativePathToFull(
+            FPaths::Combine(Plugin->GetBaseDir(), ConfiguredPath));
+        if (IFileManager::Get().DirectoryExists(*PluginCandidate) || FPaths::FileExists(PluginCandidate))
+        {
+            return PluginCandidate;
+        }
+    }
+    return ProjectCandidate;
 }
 
 bool ResolveRequiredFile(const FString& Directory, const TCHAR* Name, FString& OutPath)

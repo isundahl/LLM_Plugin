@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "name": "Local Multimodal LLM minimal spoken character",
+  "maintainer": "Ian Sundahl / Volley Studios",
+  "repository": "https://github.com/isundahl/LLM_Plugin",
+  "compatibility": {
+    "unrealEngine": "5.8",
+    "platform": "Win64",
+    "networkRequiredAtRuntime": false,
+    "pythonRequiredAtRuntime": false
+  },
+  "install": {
+    "destination": "<UnrealProject>/Plugins/LocalMultimodalLLM",
+    "requiredPlugins": ["LocalMultimodalLLM", "AudioCapture"],
+    "compileOnce": true,
+    "manualFeatureDefines": false
+  },
+  "starterStack": {
+    "modelId": "gemma-4-e2b-it-qat",
+    "speechToTextProvider": "sherpa-onnx",
+    "textToSpeechProvider": "pocket-tts",
+    "preferredCaptureMode": "push-to-talk",
+    "nativeBackends": ["cpu", "vulkan"]
+  },
+  "components": [
+    "Local LLM",
+    "Local LLM Microphone",
+    "Local LLM Text To Speech"
+  ],
+  "flow": [
+    "Load Model By Id",
+    "Wait for model-ready status",
+    "Create Character Session once per NPC",
+    "Start Push To Talk Recording on button press",
+    "Stop Push To Talk Recording And Submit on button release",
+    "Accumulate OnTextDelta by request",
+    "Queue complete validated sentences to speech",
+    "Validate OnToolCall in Unreal before execution"
+  ],
+  "events": {
+    "text": "OnTextDelta",
+    "tools": "OnToolCall",
+    "state": "OnSubsystemStateChanged",
+    "lifecycle": "OnStatusChanged",
+    "speechInput": "OnUserSpeechCaptured"
+  },
+  "safety": {
+    "gameStateAuthoritative": true,
+    "toolsAllowListed": true,
+    "arbitraryReflectionForbidden": true,
+    "oneModelSeparateCharacterSessions": true
+  },
+  "documentation": {
+    "agentQuickStart": "Docs/AIQuickStart.md",
+    "userGuide": "Docs/UserGuide.md",
+    "packaging": "Docs/Packaging.md",
+    "starterModels": "Docs/StarterModels.md"
+  }
+}

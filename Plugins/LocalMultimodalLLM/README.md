@@ -10,6 +10,8 @@ and output components.
 The plug-in is currently beta (`0.1.0`). Begin with the
 [User Guide](Docs/UserGuide.md), then use the
 [Release and Packaging Guide](Docs/Packaging.md) before distributing a build.
+Coding agents can use the concise [AI-agent Quick Start](Docs/AIQuickStart.md)
+and [machine-readable integration recipe](Examples/AIIntegration/integration.recipe.json).
 
 ## Included capabilities
 

@@ -23,7 +23,10 @@ if (Test-Path -LiteralPath $destination) {
 
 New-Item -ItemType Directory -Path $destination | Out-Null
 
-foreach ($file in @("LocalMultimodalLLM.uplugin", "README.md", "LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md")) {
+foreach ($file in @(
+    "LocalMultimodalLLM.uplugin", "README.md", "LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md",
+    "AGENTS.md", "llms.txt"
+)) {
     Copy-Item -LiteralPath (Join-Path $source $file) -Destination (Join-Path $destination $file)
 }
 

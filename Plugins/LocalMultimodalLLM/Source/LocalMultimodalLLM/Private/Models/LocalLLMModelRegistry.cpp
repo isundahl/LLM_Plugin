@@ -3,6 +3,7 @@
 #include "Dom/JsonObject.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformProcess.h"
+#include "Interfaces/IPluginManager.h"
 #include "LocalLLMSettings.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
@@ -64,6 +65,13 @@ TArray<FLocalLLMModelInfo> FLocalLLMModelRegistry::Discover()
     // and packaged builds.
     AddSearchRoot(Roots, TEXT("Models"));
     AddSearchRoot(Roots, FPaths::Combine(TEXT("Saved"), TEXT("LocalMultimodalLLM"), TEXT("Models")));
+    // Fab installs a code plug-in as one self-contained directory. Accepting a
+    // plug-in-local Models directory lets that package remain ready to use
+    // without copying multi-gigabyte weights into each project's root.
+    if (const TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(TEXT("LocalMultimodalLLM")); Plugin.IsValid())
+    {
+        AddSearchRoot(Roots, FPaths::Combine(Plugin->GetBaseDir(), TEXT("Models")));
+    }
     for (const FDirectoryPath& Directory : GetDefault<ULocalLLMSettings>()->AdditionalModelDirectories)
     {
         AddSearchRoot(Roots, Directory.Path);

@@ -35,7 +35,7 @@ project's credits or documentation:
 After changing distributable files, run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\Plugins\LocalMultimodalLLM\Scripts\ValidateDistribution.ps1 -PluginRoot .\Plugins\LocalMultimodalLLM -Profile Full
+powershell -ExecutionPolicy Bypass -File .\Plugins\LocalMultimodalLLM\Scripts\ValidateDistribution.ps1 -PluginPath .\Plugins\LocalMultimodalLLM -Profile Full
 ```
 
 Do not commit Unreal `Intermediate`, `Saved`, caches, recordings, demo assets,

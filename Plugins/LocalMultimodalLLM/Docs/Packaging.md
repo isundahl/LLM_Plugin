@@ -40,8 +40,10 @@ Exclude all of the following from the **plug-in folder**:
 - `Intermediate/`
 - `Binaries/Win64/*.pdb`
 - object files, compiler caches, logs, and crash output
-- model weights (stage approved starter weights at the release root under
-  `Models`, never inside `Plugins/LocalMultimodalLLM`)
+- unapproved or development model weights. Normal project-root bundles stage
+  approved Starter assets under `Models`; the special Fab Starter Core archive
+  intentionally places only the allow-listed assets inside its one required
+  self-contained plug-in folder.
 - Python environments and benchmark output under the project's `Saved/`
 - raw voice datasets and derived recordings
 - project-only demo maps, MetaHumans, animation packs, and licensed environment assets
@@ -115,9 +117,11 @@ The native `sherpa-onnx` STT and Pocket TTS adapter require:
 - `onnxruntime_providers_shared.dll`
 - the matching `sherpa-onnx-c-api.lib` and headers
 
-Speech model directories are project-level assets rather than files inside the
-plug-in. The Starter downloads stage their approved Parakeet and Pocket model
-directories under `<Project>/Models`; a source-only checkout does not. NeuTTS-2E
+Speech model directories are normally project-level assets. Project-root Starter
+downloads stage approved Parakeet and Pocket directories under `<Project>/Models`;
+the one-folder Fab Starter instead stores the same allow-listed files under the
+plug-in's `Models` directory, which the runtime also resolves and stages. A
+source-only checkout does not include these weights. NeuTTS-2E
 is a development Python/CPU adapter and Chatterbox is a development Python/CUDA
 adapter. Both are registered only in non-Shipping Win64 builds and rely on
 project-side environments under `Saved/`; neither is staged as part of the
@@ -138,6 +142,29 @@ stage its `test_wavs`. The Caro Davy, Bill Boerst, Peter Yearsley, and Stuart Be
 Voice-Zero recordings and are explicitly staged as NonUFS runtime files. Preserve the
 required model/runtime attribution and license files and comply with the
 upstream gated-model use policy.
+
+## Fab Starter Core
+
+Fab accepts a single Unreal plug-in ZIP rather than the project-root layout used
+by the modular GitHub downloads. Assemble the self-contained CPU + Vulkan
+Starter artifact with:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File `
+  .\Plugins\LocalMultimodalLLM\Scripts\AssembleFabStarterCore.ps1 `
+  -OutputDirectory .\Saved\Releases\Fab-0.1.0-beta `
+  -ProjectRoot . -VersionLabel 0.1.0-beta-UE5.8
+```
+
+The assembler creates one canonical ZIP whose only top-level directory is
+`LocalMultimodalLLM/`. It builds a clean Core plug-in, copies only approved
+Gemma, Parakeet, Pocket, voice, and license assets into it, validates the full
+payload, generates asset and archive checksums, and writes Fab submission
+notes. CUDA remains a separate optional accelerator.
+
+The resulting ZIP is larger than GitHub's single-release-asset limit. Host it
+on stable external storage, give Fab a direct reviewer-accessible download
+link, and test that link while signed out before submission.
 
 EARS and Expresso references are CC BY-NC 4.0 and are forbidden from a normal
 commercial release profile. They may remain only in excluded local benchmark

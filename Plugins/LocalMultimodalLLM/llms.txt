@@ -1,0 +1,29 @@
+# Local Multimodal LLM
+
+> Self-contained Win64 Unreal Engine 5.8 plug-in for private offline NPC
+> dialogue, GGUF inference, speech recognition, speech synthesis,
+> multi-character memory, dialogue routing, and constrained Unreal actions.
+
+Maintainer: Ian Sundahl / Volley Studios
+Repository: https://github.com/isundahl/LLM_Plugin
+License: Apache-2.0 for original code and documentation; bundled third-party
+runtimes, models, and voices retain their own terms.
+
+## Agent entry points
+
+- Minimal integration: Docs/AIQuickStart.md
+- Machine-readable recipe: Examples/AIIntegration/integration.recipe.json
+- Human user guide: Docs/UserGuide.md
+- Public C++ API: Source/LocalMultimodalLLM/Public
+- Default settings: Config/DefaultLocalMultimodalLLM.ini
+- Model manifests: Content/Examples/Models and Models/**/*.localllm.json
+- Packaging: Docs/Packaging.md
+- Model and voice notices: ModelLicenses
+
+## Default Fab Starter Core stack
+
+- Text: Gemma 4 E2B IT QAT, model ID `gemma-4-e2b-it-qat`
+- STT: Parakeet through native sherpa-onnx
+- TTS: Pocket TTS through native sherpa-onnx
+- Runtime backends: CPU and Vulkan; CUDA is an optional separate accelerator
+

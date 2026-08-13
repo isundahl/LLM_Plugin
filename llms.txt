@@ -25,6 +25,8 @@ Requested credit: Local Multimodal LLM created by Ian Sundahl and Volley Studios
 - Guard behavior: Plugins/LocalMultimodalLLM/Docs/Guards.md
 - License and requested attribution: Plugins/LocalMultimodalLLM/Docs/Attribution.md
 - Coding-agent instructions: AGENTS.md
+- Minimal agent integration: Plugins/LocalMultimodalLLM/Docs/AIQuickStart.md
+- Machine-readable recipe: Plugins/LocalMultimodalLLM/Examples/AIIntegration/integration.recipe.json
 
 ## Machine-relevant locations
 

@@ -26,6 +26,8 @@ foreach ($path in @(
     "LICENSE",
     "NOTICE",
     "THIRD_PARTY_NOTICES.md",
+    "AGENTS.md",
+    "llms.txt",
     "Source/ThirdParty/SherpaOnnx/ONNXRUNTIME-LICENSE",
     "Source/ThirdParty/LlamaCpp/LICENSE",
     "Source/ThirdParty/SherpaOnnx/LICENSE",
@@ -102,6 +104,7 @@ foreach ($file in $forbiddenFiles) {
 
 foreach ($requiredDoc in @(
     "Docs/UserGuide.md",
+    "Docs/AIQuickStart.md",
     "Docs/Packaging.md",
     "Docs/StarterModels.md",
     "Docs/VisionDevelopment.md",
@@ -110,6 +113,7 @@ foreach ($requiredDoc in @(
 )) {
     Require-File $requiredDoc
 }
+Require-File "Examples/AIIntegration/integration.recipe.json"
 
 $restrictedVoiceFiles = Get-ChildItem -LiteralPath $plugin -File -Recurse -Force |
     Where-Object {
