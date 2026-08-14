@@ -18,6 +18,7 @@ runtimes, models, and voices retain their own terms.
 - Default settings: Config/DefaultLocalMultimodalLLM.ini
 - Model manifests: Content/Examples/Models and Models/**/*.localllm.json
 - Packaging: Docs/Packaging.md
+- Privacy and offline data boundary: Docs/Privacy.md
 - Model and voice notices: ModelLicenses
 
 ## Default Fab Starter Core stack
@@ -26,4 +27,3 @@ runtimes, models, and voices retain their own terms.
 - STT: Parakeet through native sherpa-onnx
 - TTS: Pocket TTS through native sherpa-onnx
 - Runtime backends: CPU and Vulkan; CUDA is an optional separate accelerator
-

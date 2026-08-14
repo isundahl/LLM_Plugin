@@ -27,6 +27,7 @@ Requested credit: Local Multimodal LLM created by Ian Sundahl and Volley Studios
 - Coding-agent instructions: AGENTS.md
 - Minimal agent integration: Plugins/LocalMultimodalLLM/Docs/AIQuickStart.md
 - Machine-readable recipe: Plugins/LocalMultimodalLLM/Examples/AIIntegration/integration.recipe.json
+- Privacy and offline data boundary: Plugins/LocalMultimodalLLM/Docs/Privacy.md
 
 ## Machine-relevant locations
 

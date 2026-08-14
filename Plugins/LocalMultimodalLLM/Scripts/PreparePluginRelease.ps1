@@ -30,7 +30,7 @@ foreach ($file in @(
     Copy-Item -LiteralPath (Join-Path $source $file) -Destination (Join-Path $destination $file)
 }
 
-foreach ($directory in @("Config", "Content", "Docs", "Examples", "Scripts", "Source")) {
+foreach ($directory in @("Config", "Content", "Docs", "Examples", "Resources", "Scripts", "Source")) {
     Copy-Item -LiteralPath (Join-Path $source $directory) -Destination $destination -Recurse
 }
 

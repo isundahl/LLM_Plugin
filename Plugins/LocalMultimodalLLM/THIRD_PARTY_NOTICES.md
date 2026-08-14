@@ -26,12 +26,13 @@ runtime redistribution must comply with the applicable NVIDIA terms.
 - ONNX Runtime notice/license files are retained beside the imported SDK
 - Runtime: `Binaries/ThirdParty/SherpaOnnx/Win64`
 
-## Not bundled as plug-in content
+## Development/demo assets not bundled
 
-Model weights, tokenizers, speech models, reference voices, EARS recordings,
+The source repository excludes large model weights. The assembled Fab Starter
+plug-in does include the approved Gemma, Parakeet, Pocket, and four Voice-Zero
+starter assets with their licenses under `ModelLicenses`. EARS recordings,
 Python environments, Chatterbox, NeuTTS, MetaHumans, maps, animation packs, and
-other demo assets are supplied separately by the project developer. Their
-licenses and voice/data consent requirements must be reviewed independently.
+other demo assets are not included and retain independent terms.
 
 ### Pocket TTS model assets
 

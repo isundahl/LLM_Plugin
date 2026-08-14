@@ -12,6 +12,7 @@ The plug-in is currently beta (`0.1.0`). Begin with the
 [Release and Packaging Guide](Docs/Packaging.md) before distributing a build.
 Coding agents can use the concise [AI-agent Quick Start](Docs/AIQuickStart.md)
 and [machine-readable integration recipe](Examples/AIIntegration/integration.recipe.json).
+The [Privacy statement](Docs/Privacy.md) describes the offline data boundary.
 
 ## Included capabilities
 
@@ -143,8 +144,9 @@ respondent. Always-on/VAD capture remains optional.
 - Automation tests compile only when Unreal enables development automation tests.
 - Raw voice datasets, benchmark configurations, Python environments,
   MetaHumans, and demo-map assets are project test material, not plug-in
-  payload. Approved starter weights are release-bundle assets stored beside the
-  plug-in rather than inside its folder or Git history.
+  payload. Approved starter weights live at the root of project-style Starter
+  bundles or inside the self-contained Fab Starter plug-in; neither location is
+  stored in Git history.
 - `Intermediate`, PDB/OBJ files, caches, and Saved output must not be distributed.
 - Pocket TTS and sherpa-onnx provide the native CPU Shipping-capable code path.
   Pocket source is MIT, upstream and converted weights are CC BY 4.0, and

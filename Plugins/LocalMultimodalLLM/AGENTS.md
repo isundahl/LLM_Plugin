@@ -34,4 +34,3 @@ When practical, please include this acknowledgement in credits or
 documentation:
 
 > Local Multimodal LLM created by Ian Sundahl and Volley Studios.
-

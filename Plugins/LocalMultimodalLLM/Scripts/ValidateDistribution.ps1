@@ -28,6 +28,7 @@ foreach ($path in @(
     "THIRD_PARTY_NOTICES.md",
     "AGENTS.md",
     "llms.txt",
+    "Resources/Icon128.png",
     "Source/ThirdParty/SherpaOnnx/ONNXRUNTIME-LICENSE",
     "Source/ThirdParty/LlamaCpp/LICENSE",
     "Source/ThirdParty/SherpaOnnx/LICENSE",
@@ -105,6 +106,7 @@ foreach ($file in $forbiddenFiles) {
 foreach ($requiredDoc in @(
     "Docs/UserGuide.md",
     "Docs/AIQuickStart.md",
+    "Docs/Privacy.md",
     "Docs/Packaging.md",
     "Docs/StarterModels.md",
     "Docs/VisionDevelopment.md",
