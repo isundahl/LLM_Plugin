@@ -113,6 +113,23 @@ default pack. MTP awaits an implemented speculative runtime. Vision remains an
 available development feature for projects that supply and validate their own
 matching projector.
 
+### Public v0.1.0-beta archives
+
+- [Fab Starter Core (self-contained)](https://downloads.volleyballersvr.com/LocalMultimodalLLM-0.1.0-beta-UE5.8-Fab-Starter-Core-Win64.zip)
+- [CUDA 12 Accelerator (optional NVIDIA add-on)](https://downloads.volleyballersvr.com/supplementary/v0.1.0-beta/LocalMultimodalLLM-0.1.0-beta-CUDA12-Accelerator-Win64.zip)
+- [Plug-in Core (without model weights)](https://downloads.volleyballersvr.com/supplementary/v0.1.0-beta/LocalMultimodalLLM-0.1.0-beta-UE5.8-Plugin-Core-Win64.zip)
+- [Starter Model Pack (models only)](https://downloads.volleyballersvr.com/supplementary/v0.1.0-beta/LocalMultimodalLLM-0.1.0-beta-Starter-Model-Pack.zip)
+- [Supplementary SHA-256 checksums](https://downloads.volleyballersvr.com/supplementary/v0.1.0-beta/SUPPLEMENTARY_SHA256SUMS.txt)
+
+The modular Plug-in Core and Starter Model Pack are alternatives to downloading
+Starter Core, not additional requirements. The CUDA archive is the optional
+accelerator installed over an existing Core or Starter Core layout.
+
+**Pocket TTS v0.1 limitation:** the Pocket backend initializes its reference
+voice with the Text To Speech component. Use one component per distinct Pocket
+reference voice; multiple characters can share it when they share that voice.
+Dynamic per-request reference switching through one component is planned.
+
 The development checkout retains all backends. Omitting CUDA does not disable
 CPU or Vulkan. See
 [Packaging.md](Docs/Packaging.md) for exact files and exclusions.
